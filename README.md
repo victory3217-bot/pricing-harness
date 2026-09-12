@@ -1,3 +1,5 @@
+[English](README.md) | [한국어](README.ko.md)
+
 # Pricing Harness
 
 A reusable pricing-management and pricing-strategy engine for repeated use across multiple
@@ -300,7 +302,7 @@ meant to match each other, and none of them should be read as covering what anot
 
 | Axis | Current value | Source of truth | What it tracks |
 |---|---|---|---|
-| **Product release** | `0.1.0-beta.2` | root [`VERSION`](VERSION) file, tagged in git as `v0.1.0-beta.2` | The Pricing Harness as a whole (Python Core + schemas + Excel Simulator + docs) at a point in time. This is the sanitized public repository's first release identity — current maturity is **Limited/Beta**. |
+| **Product release** | `0.1.0-beta.3` | root [`VERSION`](VERSION) file, tagged in git as `v0.1.0-beta.3` | The Pricing Harness as a whole (Python Core + schemas + Excel Simulator + docs) at a point in time. This is the sanitized public repository's release identity — current maturity is **Limited/Beta**. |
 | Python engine marker | `0.4.0` | `ENGINE_VERSION` in [`core/engine/result_builder.py`](core/engine/result_builder.py) | The calculation engine's own internal iteration, stamped into every generated Analysis Result's `source.engine_version` field. |
 | Excel Simulator artifact | `v0.5` | the workbook's own filename, `Pricing_Harness_Excel_Simulator_v0.5.xlsx` | This specific Excel build's own iteration, independent of the Python engine or the product release. |
 | Schema / data contract | `1.1` | `schema_version` field inside every Client Input / Analysis Result / Scenario Compare document | The *shape* of the JSON documents flowing through the system — a data-compatibility version, not a software release. |
