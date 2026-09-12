@@ -1,0 +1,191 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pricing-harness/schemas/scenario_compare_result.schema.json",
+  "title": "Pricing Harness — Scenario Compare Result",
+  "description": "Output of the Scenario Compare orchestration layer (docs/features/scenario_compare/SPEC.md). Every per-scenario mode result is the UNMODIFIED output of run_mode_a/run_mode_b/run_mode_c/run_bep on that scenario's derived client_input — reused here via $ref into analysis_result.schema.json's existing mode_a_block/mode_b_block/mode_c_block/bep_block definitions, not redefined. Scenario Compare introduces no new calculation semantics; this schema only arranges existing mode outputs plus a small set of pass-through summary/delta views.",
+  "type": "object",
+  "required": ["status", "baseline_scenario_id", "scenarios", "warnings"],
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/module_status",
+      "description": "SPEC.md section 9's canonical rollup, applied once more across all scenarios' own scenario_status values: ERROR > INCOMPLETE > OK."
+    },
+    "baseline_scenario_id": {
+      "type": "string",
+      "description": "Echoed from the request, so this result document is self-contained."
+    },
+    "scenarios": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/scenario_result" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/scenario_compare_warning" },
+      "description": "scenario_compare-level conditions that don't belong to any single scenario. Two distinct cases populate this array: (1) STEP 1 request-level preflight failures (SPEC.md section 15) — duplicate scenario_id, missing/unresolvable baseline_scenario_id, base_input id-uniqueness failures, unresolvable override targets, disallowed override fields; when these are present, status=ERROR and scenarios is empty, the whole request failed before any scenario was built. (2) BASELINE_SCENARIO_INVALID_FOR_DELTA (SPEC.md section 14a) — present exactly once (never duplicated per sibling scenario) when the baseline scenario itself failed STEP 3; scenarios is NOT empty in this case, every other scenario's absolute results/summary are still present, only their deltas are affected. Scenario-level issues (a non-baseline scenario's own STEP 3 failure, or a mode's own warnings) live inside that scenario's own warnings instead, never here."
+    }
+  },
+  "definitions": {
+    "scenario_result": {
+      "type": "object",
+      "required": ["scenario_id", "label", "scenario_status", "warnings"],
+      "additionalProperties": false,
+      "properties": {
+        "scenario_id": { "type": "string" },
+        "label": { "type": "string" },
+        "scenario_status": {
+          "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/module_status",
+          "description": "SPEC.md section 9: ERROR if any of results.mode_a/mode_b/mode_c/bep is ERROR, or if this scenario failed STEP 3 (results absent below); INCOMPLETE if no ERROR but at least one module is INCOMPLETE; OK otherwise."
+        },
+        "results": {
+          "$ref": "#/definitions/mode_results",
+          "description": "Present only if this scenario passed STEP 3 (its merged client_input validated against client_input.schema.json). Absent when scenario_status=ERROR due to a STEP 3 failure — no partial/best-effort mode results are fabricated for an invalid client_input."
+        },
+        "summary": {
+          "$ref": "#/definitions/summary",
+          "description": "Present under the same condition as results (derived from it, read-only, no recomputation)."
+        },
+        "deltas": {
+          "$ref": "#/definitions/deltas",
+          "description": "Present for every scenario including the baseline itself (SPEC.md section 14 — the baseline's own self-delta follows the same status-propagation rule as any other scenario's delta, never an unconditional 0/OK). Values are per-component-keyed, following whatever value/status the two operand metrics' own statuses produce — see component_delta."
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/scenario_compare_warning" },
+          "description": "Concatenation of every mode's own warnings (origin_module-tagged, SPEC.md section 11) plus, if this scenario failed STEP 3, a single scenario-local validation-failure warning; plus, on any OTHER scenario, a BASELINE_SCENARIO_INVALID_FOR_DELTA warning if the baseline itself failed STEP 3 (SPEC.md section 14a)."
+        }
+      }
+    },
+
+    "mode_results": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode_a": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/mode_a_block" },
+        "mode_b": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/mode_b_block" },
+        "mode_c": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/mode_c_block" },
+        "bep":    { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/bep_block" }
+      },
+      "required": ["mode_a", "mode_b", "mode_c", "bep"]
+    },
+
+    "summary": {
+      "type": "object",
+      "required": ["per_component"],
+      "additionalProperties": false,
+      "properties": {
+        "per_component": {
+          "type": "object",
+          "description": "Keyed by component_id (never array index — SPEC.md section 15). Same component_id set as this scenario's client_input.product.price_components (structural overrides are unsupported in v0.1, so this set is identical across every scenario derived from the same base_input).",
+          "additionalProperties": { "$ref": "#/definitions/component_summary" }
+        }
+      }
+    },
+    "component_summary": {
+      "type": "object",
+      "required": ["mode_a", "mode_b", "mode_c", "bep"],
+      "additionalProperties": false,
+      "description": "Every field here is copied verbatim from that mode's own per_component metric objects (SPEC.md section 10) — no recomputation.",
+      "properties": {
+        "mode_a": {
+          "type": "object",
+          "required": ["status", "actual_price_ex_vat", "contribution_margin", "contribution_margin_rate"],
+          "additionalProperties": false,
+          "properties": {
+            "status": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/module_status" },
+            "actual_price_ex_vat": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/metric" },
+            "contribution_margin": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/metric" },
+            "contribution_margin_rate": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/metric" }
+          }
+        },
+        "mode_b": {
+          "type": "object",
+          "required": ["status", "required_selling_price", "required_list_price"],
+          "additionalProperties": false,
+          "properties": {
+            "status": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/module_status" },
+            "required_selling_price": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/metric" },
+            "required_list_price": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/metric" }
+          }
+        },
+        "mode_c": {
+          "type": "object",
+          "required": ["status", "allowable_direct_cost", "actual_direct_cost", "direct_cost_gap"],
+          "additionalProperties": false,
+          "properties": {
+            "status": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/module_status" },
+            "allowable_direct_cost": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/metric" },
+            "actual_direct_cost": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/metric" },
+            "direct_cost_gap": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/metric" }
+          }
+        },
+        "bep": {
+          "description": "null specifically when bep.status=ERROR with no per_component entry for this component_id (e.g. the multi-component gate, dependency_rules.md section 7) — distinct from a metric being individually UNKNOWN/ERROR, which is instead represented normally inside a present bep summary object.",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["status", "fixed_operating_cost", "contribution_margin_per_unit", "break_even_quantity_exact", "analysis_period_basis"],
+              "additionalProperties": false,
+              "properties": {
+                "status": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/module_status" },
+                "fixed_operating_cost": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/metric" },
+                "contribution_margin_per_unit": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/metric" },
+                "break_even_quantity_exact": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/metric" },
+                "analysis_period_basis": { "type": ["string", "null"] }
+              }
+            }
+          ]
+        }
+      }
+    },
+
+    "deltas": {
+      "type": "object",
+      "required": ["per_component"],
+      "additionalProperties": false,
+      "properties": {
+        "per_component": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/component_delta" }
+        }
+      }
+    },
+    "component_delta": {
+      "type": "object",
+      "required": ["net_sales_ex_vat_delta", "contribution_margin_delta", "contribution_margin_rate_delta", "break_even_quantity_delta"],
+      "additionalProperties": false,
+      "description": "SPEC.md section 13/14: each field's value/status follows ERROR > UNKNOWN > NOT_APPLICABLE > OK propagation from its two source metrics (this scenario's own vs. the baseline's) — value is a plain number only when both are numeric OK, else null. Fixed source per field (section 14's table) — never a MODE B/C equivalent metric.",
+      "properties": {
+        "net_sales_ex_vat_delta": { "$ref": "#/definitions/delta_value" },
+        "contribution_margin_delta": { "$ref": "#/definitions/delta_value" },
+        "contribution_margin_rate_delta": { "$ref": "#/definitions/delta_value" },
+        "break_even_quantity_delta": { "$ref": "#/definitions/delta_value" }
+      }
+    },
+    "delta_value": {
+      "type": "object",
+      "required": ["value", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "value": { "type": ["number", "null"] },
+        "status": { "$ref": "https://pricing-harness/schemas/analysis_result.schema.json#/definitions/metric_status" }
+      }
+    },
+
+    "scenario_compare_warning": {
+      "type": "object",
+      "required": ["origin_module", "code", "severity", "metric_path", "dependency_paths", "message"],
+      "additionalProperties": false,
+      "description": "origin_module is the only field Scenario Compare adds; code/severity/metric_path/dependency_paths/message are copied verbatim from the source mode's own warning object when origin_module is mode_a/mode_b/mode_c/bep (SPEC.md section 11) — never reinterpreted. origin_module='scenario_compare' marks a warning Scenario Compare itself generates (request-level preflight failures, or BASELINE_SCENARIO_INVALID_FOR_DELTA), which does not correspond to any single mode's own output.",
+      "properties": {
+        "origin_module": { "type": "string", "enum": ["mode_a", "mode_b", "mode_c", "bep", "scenario_compare"] },
+        "code": { "type": "string" },
+        "severity": { "type": "string", "enum": ["blocking", "warning", "info"] },
+        "metric_path": { "type": "string" },
+        "dependency_paths": { "type": "array", "items": { "type": "string" } },
+        "message": { "type": "string" }
+      }
+    }
+  }
+}

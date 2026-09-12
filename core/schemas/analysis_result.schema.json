@@ -1,0 +1,284 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pricing-harness/schemas/analysis_result.schema.json",
+  "title": "Pricing Harness – Analysis Result",
+  "description": "Output of the Pricing Engine for one Client Input. Dashboard, Report, and Quotation all read this document only — they never recompute. Every computed number is wrapped as {value, status, unit}; module-level blocks (mode_a, mode_b, mode_c, bep, blended) carry their own top-level status.",
+  "type": "object",
+  "required": ["schema_version", "source", "currency", "mode_a", "blended", "mode_b", "mode_c", "bep", "meta"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string" },
+
+    "source": {
+      "type": "object",
+      "required": ["client_id", "case_id", "client_input_ref", "engine_version", "calculated_at"],
+      "additionalProperties": false,
+      "properties": {
+        "client_id": { "type": "string" },
+        "case_id": { "type": "string" },
+        "client_input_ref": { "type": "string", "description": "Path or identifier of the Client Input document this result was computed from." },
+        "client_input_checksum": { "type": "string", "description": "Optional hash of the Client Input, for traceability/cache-invalidation." },
+        "engine_version": { "type": "string" },
+        "calculated_at": { "type": "string" }
+      }
+    },
+
+    "currency": {
+      "type": "object",
+      "required": ["reporting"],
+      "additionalProperties": false,
+      "properties": {
+        "reporting": { "type": "string" }
+      }
+    },
+
+    "mode_a": { "$ref": "#/definitions/mode_a_block" },
+
+    "blended": {
+      "$ref": "#/definitions/module_block",
+      "description": "Reserved for whole-contract unit economics across all price_components (e.g. combined HW+SaaS view). Not implemented — status is NOT_IMPLEMENTED until built."
+    },
+    "mode_b": {
+      "$ref": "#/definitions/mode_b_block",
+      "description": "MODE B is implemented (core/engine/modes/mode_b.py) and always produces a full per_component/warnings result — a Client Input with no target_contribution_margin_rate still gets status INCOMPLETE with every metric UNKNOWN, not a NOT_IMPLEMENTED stub. NOT_IMPLEMENTED is reserved for modules that genuinely have no code yet (mode_c, bep, blended)."
+    },
+    "mode_c": {
+      "$ref": "#/definitions/mode_c_block",
+      "description": "MODE C is implemented (core/engine/modes/mode_c.py) and always produces a full per_component/warnings result, mirroring mode_b's pattern — a Client Input with no target_market_price/target_contribution_margin_rate still gets status INCOMPLETE with every metric UNKNOWN, not a NOT_IMPLEMENTED stub. NOT_IMPLEMENTED is reserved for modules that genuinely have no code yet (bep, blended)."
+    },
+    "bep": {
+      "$ref": "#/definitions/bep_block",
+      "description": "BEP is implemented (core/engine/modes/bep.py) and always returns status/per_component/warnings, mirroring mode_b/mode_c's pattern. Single-component only in v0.1: a Client Input with more than one product.price_components entry gets status ERROR, per_component {}, and a single MULTI_COMPONENT_BEP_NOT_SUPPORTED warning — see docs/features/bep/SPEC.md section 11."
+    },
+
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "missing_input_paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Flat list of Client Input field paths that were null and therefore blocked at least one metric. Convenience summary for Dashboard badge counts — the authoritative detail lives in each module's warnings[]."
+        }
+      }
+    }
+  },
+
+  "definitions": {
+    "module_status": {
+      "type": "string",
+      "enum": ["NOT_IMPLEMENTED", "NOT_RUN", "INCOMPLETE", "OK", "ERROR"],
+      "description": "Module-level status only (mode_a/mode_b/mode_c/bep/blended top status). Never used on an individual metric."
+    },
+
+    "metric_status": {
+      "type": "string",
+      "enum": ["OK", "UNKNOWN", "ESTIMATED", "NOT_APPLICABLE", "ERROR"],
+      "description": "Per-metric status. OK = every dependency resolved. UNKNOWN = a required dependency is missing (null). ESTIMATED = computed using an assumed/default value rather than a confirmed input (must be cited in warnings). NOT_APPLICABLE = this metric has no meaning for this component/product shape. ERROR = a dependency was present but computation still failed (e.g. contradictory inputs)."
+    },
+
+    "metric": {
+      "type": "object",
+      "required": ["value", "status", "unit"],
+      "additionalProperties": false,
+      "properties": {
+        "value": { "type": ["number", "null"] },
+        "status": { "$ref": "#/definitions/metric_status" },
+        "unit": { "type": "string" }
+      }
+    },
+
+    "warning": {
+      "type": "object",
+      "required": ["code", "severity", "metric_path", "dependency_paths", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string", "description": "e.g. MISSING_DEPENDENCY, DOWNSTREAM_UNKNOWN, ESTIMATED_VALUE_USED, NOT_APPLICABLE, CALCULATION_ERROR." },
+        "severity": { "type": "string", "enum": ["blocking", "warning", "info"] },
+        "metric_path": { "type": "string", "description": "Dot/bracket path of the affected metric within this Analysis Result document." },
+        "dependency_paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Path(s) this metric depends on — may point into the Client Input document (e.g. costs.items[bom].amount) or into this Analysis Result itself (e.g. mode_a.per_component.hardware.gross_profit), for propagated warnings."
+        },
+        "message": { "type": "string" }
+      }
+    },
+
+    "module_block": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": true,
+      "properties": {
+        "status": { "$ref": "#/definitions/module_status" }
+      }
+    },
+
+    "component_metrics": {
+      "type": "object",
+      "required": [
+        "actual_price_ex_vat",
+        "direct_cost_total",
+        "gross_profit",
+        "gross_profit_rate",
+        "variable_cost_total",
+        "contribution_margin",
+        "contribution_margin_rate"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "actual_price_ex_vat":      { "$ref": "#/definitions/metric" },
+        "direct_cost_total":        { "$ref": "#/definitions/metric" },
+        "gross_profit":             { "$ref": "#/definitions/metric" },
+        "gross_profit_rate":        { "$ref": "#/definitions/metric" },
+        "variable_cost_total":      { "$ref": "#/definitions/metric" },
+        "contribution_margin":      { "$ref": "#/definitions/metric" },
+        "contribution_margin_rate": { "$ref": "#/definitions/metric" }
+      }
+    },
+
+    "mode_a_block": {
+      "type": "object",
+      "required": ["status", "per_component", "warnings"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "$ref": "#/definitions/module_status" },
+        "per_component": {
+          "type": "object",
+          "description": "Keyed by component_id from the source Client Input's product.price_components.",
+          "additionalProperties": { "$ref": "#/definitions/component_metrics" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/warning" }
+        }
+      }
+    },
+
+    "mode_b_component_metrics": {
+      "type": "object",
+      "description": "MODE B (Target Price) per-component output — see docs/features/mode_b_target_price/SPEC.md.",
+      "required": [
+        "denominator",
+        "required_net_sales_ex_vat",
+        "required_gross_payment_incl_vat",
+        "required_selling_price",
+        "required_list_price",
+        "expected_contribution_margin",
+        "expected_contribution_margin_rate"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "denominator":                        { "$ref": "#/definitions/metric" },
+        "required_net_sales_ex_vat":          { "$ref": "#/definitions/metric" },
+        "required_gross_payment_incl_vat":    { "$ref": "#/definitions/metric" },
+        "required_selling_price":             { "$ref": "#/definitions/metric" },
+        "required_list_price":                { "$ref": "#/definitions/metric" },
+        "expected_contribution_margin":       { "$ref": "#/definitions/metric" },
+        "expected_contribution_margin_rate":  { "$ref": "#/definitions/metric" }
+      }
+    },
+
+    "mode_b_block": {
+      "type": "object",
+      "description": "The actual shape of the top-level mode_b property (see mode_b_component_metrics above) — MODE B always runs and always returns per_component/warnings, even when every metric is UNKNOWN.",
+      "required": ["status", "per_component", "warnings"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "$ref": "#/definitions/module_status" },
+        "per_component": {
+          "type": "object",
+          "description": "Keyed by component_id from the source Client Input's product.price_components.",
+          "additionalProperties": { "$ref": "#/definitions/mode_b_component_metrics" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/warning" }
+        }
+      }
+    },
+
+    "mode_c_component_metrics": {
+      "type": "object",
+      "description": "MODE C (Allowable Direct Cost) per-component output — see docs/features/mode_c_allowable_cost/SPEC.md. allowable_direct_cost never depends on actual_direct_cost/direct_cost_gap (SPEC.md §9's dependency isolation) — a problem on the direct-cost side never blocks allowable_direct_cost, and vice versa.",
+      "required": [
+        "market_net_sales_ex_vat",
+        "market_gross_payment_incl_vat",
+        "allowable_direct_cost",
+        "actual_direct_cost",
+        "direct_cost_gap",
+        "expected_contribution_margin",
+        "expected_contribution_margin_rate"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "market_net_sales_ex_vat":            { "$ref": "#/definitions/metric" },
+        "market_gross_payment_incl_vat":      { "$ref": "#/definitions/metric" },
+        "allowable_direct_cost":               { "$ref": "#/definitions/metric" },
+        "actual_direct_cost":                  { "$ref": "#/definitions/metric" },
+        "direct_cost_gap":                     { "$ref": "#/definitions/metric" },
+        "expected_contribution_margin":        { "$ref": "#/definitions/metric" },
+        "expected_contribution_margin_rate":   { "$ref": "#/definitions/metric" }
+      }
+    },
+
+    "mode_c_block": {
+      "type": "object",
+      "description": "The actual shape of the top-level mode_c property (see mode_c_component_metrics above) — MODE C always runs and always returns per_component/warnings, even when every metric is UNKNOWN.",
+      "required": ["status", "per_component", "warnings"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "$ref": "#/definitions/module_status" },
+        "per_component": {
+          "type": "object",
+          "description": "Keyed by component_id from the source Client Input's product.price_components.",
+          "additionalProperties": { "$ref": "#/definitions/mode_c_component_metrics" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/warning" }
+        }
+      }
+    },
+
+    "bep_component_metrics": {
+      "type": "object",
+      "description": "BEP (Break-Even Point) per-component output — see docs/features/bep/SPEC.md. contribution_margin_per_unit follows MODE A's Contribution Margin semantics exactly (net sales ex VAT − product/service direct cost − variable selling/delivery costs; fixed_operating_cost excluded). break_even_quantity_exact is NOT_APPLICABLE (never a raw 0 or negative number, value null) whenever contribution_margin_per_unit is OK and <= 0 — see SPEC.md section 6/9 for the full FC x CMu sign matrix.",
+      "required": [
+        "analysis_period_basis",
+        "contribution_margin_per_unit",
+        "fixed_operating_cost",
+        "break_even_quantity_exact"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "analysis_period_basis": {
+          "type": ["string", "null"],
+          "description": "The single cost_item.basis (e.g. \"per_month\") every fixed_operating_cost item contributing to this component's fixed_operating_cost metric shares — the analysis period BEP's break_even_quantity_exact is implicitly scoped to (SPEC.md section 4/12). This is period CONTEXT, not a metric, and never a quantity unit. null means no fixed_operating_cost item exists for this component at all (fixed_operating_cost is then a confirmed 0, OK — not UNKNOWN, not a missing-data signal on this field) — distinct from an inconsistent-basis ERROR, which is instead surfaced via fixed_operating_cost's own status/warnings, not via this field."
+        },
+        "contribution_margin_per_unit": { "$ref": "#/definitions/metric" },
+        "fixed_operating_cost":         { "$ref": "#/definitions/metric" },
+        "break_even_quantity_exact":    { "$ref": "#/definitions/metric" }
+      }
+    },
+
+    "bep_block": {
+      "type": "object",
+      "description": "The actual shape of the top-level bep property (see bep_component_metrics above) — BEP always runs and always returns per_component/warnings, even when every metric is UNKNOWN. per_component is {} specifically (and only) when status=ERROR with code MULTI_COMPONENT_BEP_NOT_SUPPORTED (more than one product.price_components entry) — see docs/features/bep/SPEC.md section 11.",
+      "required": ["status", "per_component", "warnings"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "$ref": "#/definitions/module_status" },
+        "per_component": {
+          "type": "object",
+          "description": "Keyed by component_id from the source Client Input's product.price_components. Empty object when BEP refused to run (multi-component gate).",
+          "additionalProperties": { "$ref": "#/definitions/bep_component_metrics" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/warning" }
+        }
+      }
+    }
+  }
+}

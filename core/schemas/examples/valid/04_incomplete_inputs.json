@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.1",
+  "client_id": "sample_co_alpha",
+  "case_id": "sample_case_alpha_002_incomplete",
+  "product": {
+    "name": "프리미엄 텀블러 (원가 확정 전)",
+    "pricing_model": "one_time",
+    "price_components": [
+      {
+        "component_id": "main",
+        "type": "one_time",
+        "actual_price": 35000,
+        "currency": "KRW",
+        "price_includes_vat": null
+      }
+    ]
+  },
+  "tax": { "vat_rate": null },
+  "fx": { "base_currency": "KRW", "reporting_currency": "KRW", "rate_base_per_reporting": null },
+  "costs": {
+    "items": [
+      { "item_id": "material_cost", "label": "자재원가", "cost_category": "product_service_direct_cost",
+        "amount": null, "rate": null, "currency": "KRW", "basis": "per_unit", "applies_to_component": "main" },
+      { "item_id": "packaging", "label": "포장비", "cost_category": "product_service_direct_cost",
+        "amount": null, "rate": null, "currency": "KRW", "basis": "per_unit", "applies_to_component": "main" },
+      { "item_id": "pg_fee", "label": "PG수수료", "cost_category": "variable_selling_delivery",
+        "amount": null, "rate": null, "currency": null, "basis": "rate_of_gross_payment", "applies_to_component": "main" },
+      { "item_id": "shipping", "label": "배송비", "cost_category": "variable_selling_delivery",
+        "amount": null, "rate": null, "currency": "KRW", "basis": "per_order", "applies_to_component": "main" },
+      { "item_id": "sga", "label": "판관비", "cost_category": "fixed_operating_cost",
+        "amount": null, "rate": null, "currency": "KRW", "basis": "per_month", "applies_to_component": "shared",
+        "allocation_rule": "blended_only" }
+    ]
+  },
+  "targets": { "target_contribution_margin_rate": null },
+  "meta": {
+    "entered_by": "sample",
+    "entered_at": "2026-09-11",
+    "notes": "교육용 샘플 — 01_simple_one_time_product.json과 동일 상품, 원가/세금 필드를 전부 미입력 상태로 둔 대조 예제. 스키마상 VALID(모든 required 키 존재, 값만 null)이지만 Analysis Result에서는 거의 모든 metric이 UNKNOWN이 되어야 정상."
+  }
+}

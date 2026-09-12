@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.1",
+  "client_id": "sample_co_epsilon",
+  "case_id": "sample_case_epsilon_001",
+  "product": {
+    "name": "신규 카테고리 진입 검토",
+    "pricing_model": "one_time",
+    "price_components": [
+      {
+        "component_id": "main",
+        "type": "one_time",
+        "actual_price": null,
+        "currency": "KRW",
+        "price_includes_vat": true,
+        "target_market_price": 110000
+      }
+    ]
+  },
+  "tax": { "vat_rate": 0.10 },
+  "fx": { "base_currency": "KRW", "reporting_currency": "KRW", "rate_base_per_reporting": 1 },
+  "costs": {
+    "items": [
+      { "item_id": "packaging_fixed", "label": "포장/배송 고정비", "cost_category": "variable_selling_delivery",
+        "amount": 1000, "rate": null, "currency": "KRW", "basis": "per_order", "applies_to_component": "main" },
+      { "item_id": "channel_fee", "label": "채널수수료", "cost_category": "variable_selling_delivery",
+        "amount": null, "rate": 0.10, "currency": null, "basis": "rate_of_net_sales", "applies_to_component": "main" },
+      { "item_id": "pg_fee", "label": "PG수수료", "cost_category": "variable_selling_delivery",
+        "amount": null, "rate": 0.03, "currency": null, "basis": "rate_of_gross_payment", "applies_to_component": "main" },
+      { "item_id": "direct_estimate", "label": "실제 직접원가(견적)", "cost_category": "product_service_direct_cost",
+        "amount": 50000, "rate": null, "currency": "KRW", "basis": "per_unit", "applies_to_component": "main" }
+    ]
+  },
+  "targets": { "target_contribution_margin_rate": 0.30 },
+  "meta": {
+    "entered_by": "sample",
+    "entered_at": "2026-09-11",
+    "notes": "교육용 샘플 데이터 — 실제 기업 데이터 아님. docs/features/mode_c_allowable_cost/CASE.md의 TC5(VAT-inclusive display, both fee types)와 동일 수치 — allowable_direct_cost ≈ 55700. actual_price는 MODE C가 읽지 않는 MODE A 전용 필드라 null(미확정)이다 — 시장가격은 target_market_price(effective, post-discount)로 별도 입력한다. product_service_direct_cost 항목(direct_estimate)은 실제 견적 원가로, allowable_direct_cost 계산식의 dependency가 아니며 direct_cost_gap 비교에만 쓰인다."
+  }
+}

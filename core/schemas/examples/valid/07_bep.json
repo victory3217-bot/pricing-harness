@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.1",
+  "client_id": "sample_co_zeta",
+  "case_id": "sample_case_zeta_bep_001",
+  "product": {
+    "name": "샘플 정기배송 박스",
+    "pricing_model": "one_time",
+    "price_components": [
+      {
+        "component_id": "main",
+        "type": "one_time",
+        "actual_price": 20000,
+        "currency": "KRW",
+        "price_includes_vat": false,
+        "evidence": {
+          "source_type": "internal_spreadsheet",
+          "source_ref": "2026 가격표.xlsx",
+          "as_of_date": "2026-08-01",
+          "verification_status": "confirmed"
+        }
+      }
+    ]
+  },
+  "tax": { "vat_rate": 0.10 },
+  "fx": { "base_currency": "KRW", "reporting_currency": "KRW", "rate_base_per_reporting": 1 },
+  "costs": {
+    "items": [
+      { "item_id": "material_cost", "label": "자재원가", "cost_category": "product_service_direct_cost",
+        "amount": 8000, "rate": null, "currency": "KRW", "basis": "per_unit", "applies_to_component": "main" },
+      { "item_id": "shipping", "label": "배송비", "cost_category": "variable_selling_delivery",
+        "amount": 2000, "rate": null, "currency": "KRW", "basis": "per_order", "applies_to_component": "main" },
+      { "item_id": "fixed_ops", "label": "고정운영비(임대료+인건비)", "cost_category": "fixed_operating_cost",
+        "amount": 1000000, "rate": null, "currency": "KRW", "basis": "per_month", "applies_to_component": "main" }
+    ]
+  },
+  "targets": { "target_contribution_margin_rate": null },
+  "meta": {
+    "entered_by": "sample",
+    "entered_at": "2026-09-11",
+    "notes": "교육용 샘플 데이터 — 실제 기업 데이터 아님. BEP의 가장 단순한 완전-입력 케이스(CASE.md TC1과 동일한 경제 구조: CMu=10000, FC=1,000,000, Q_BEP=100 — 이 예시는 fixed_operating_cost를 component-scoped(main)로 직접 입력해 shared/blended_only UNKNOWN 경로를 피하고 BEP의 OK 경로를 보여준다)."
+  }
+}

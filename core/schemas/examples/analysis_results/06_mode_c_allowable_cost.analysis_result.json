@@ -1,0 +1,265 @@
+{
+  "schema_version": "1.1",
+  "source": {
+    "client_id": "sample_co_epsilon",
+    "case_id": "sample_case_epsilon_001",
+    "client_input_ref": "core\\schemas\\examples\\valid\\06_mode_c_allowable_cost.json",
+    "engine_version": "0.4.0",
+    "calculated_at": "2026-09-11T22:40:55+09:00"
+  },
+  "currency": {
+    "reporting": "KRW"
+  },
+  "mode_a": {
+    "status": "INCOMPLETE",
+    "per_component": {
+      "main": {
+        "actual_price_ex_vat": {
+          "value": null,
+          "status": "UNKNOWN",
+          "unit": "KRW"
+        },
+        "direct_cost_total": {
+          "value": 50000.0,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "gross_profit": {
+          "value": null,
+          "status": "UNKNOWN",
+          "unit": "KRW"
+        },
+        "gross_profit_rate": {
+          "value": null,
+          "status": "UNKNOWN",
+          "unit": "ratio"
+        },
+        "variable_cost_total": {
+          "value": null,
+          "status": "UNKNOWN",
+          "unit": "KRW"
+        },
+        "contribution_margin": {
+          "value": null,
+          "status": "UNKNOWN",
+          "unit": "KRW"
+        },
+        "contribution_margin_rate": {
+          "value": null,
+          "status": "UNKNOWN",
+          "unit": "ratio"
+        }
+      }
+    },
+    "warnings": [
+      {
+        "code": "MISSING_DEPENDENCY",
+        "severity": "blocking",
+        "metric_path": "mode_a.per_component.main.actual_price_ex_vat",
+        "dependency_paths": [
+          "product.price_components[main].actual_price"
+        ],
+        "message": "VAT 관련 필드(또는 통화 환율)가 미입력되어 VAT 제외 순매출을 계산할 수 없습니다."
+      },
+      {
+        "code": "DOWNSTREAM_UNKNOWN",
+        "severity": "blocking",
+        "metric_path": "mode_a.per_component.main.gross_profit",
+        "dependency_paths": [
+          "mode_a.per_component.main.actual_price_ex_vat"
+        ],
+        "message": "상위 지표가 UNKNOWN 또는 ERROR라 gross_profit을 계산할 수 없습니다."
+      },
+      {
+        "code": "DOWNSTREAM_UNKNOWN",
+        "severity": "blocking",
+        "metric_path": "mode_a.per_component.main.gross_profit_rate",
+        "dependency_paths": [
+          "mode_a.per_component.main.gross_profit",
+          "mode_a.per_component.main.actual_price_ex_vat"
+        ],
+        "message": "gross_profit 또는 actual_price_ex_vat이 확정되지 않아 비율을 계산할 수 없습니다."
+      },
+      {
+        "code": "MISSING_DEPENDENCY",
+        "severity": "blocking",
+        "metric_path": "mode_a.per_component.main.variable_cost_total",
+        "dependency_paths": [
+          "product.price_components[main].actual_price",
+          "product.price_components[main].actual_price"
+        ],
+        "message": "판매/배송 변동비 항목이 미입력되었거나 공유비용 배부 규칙이 아직 지원되지 않아 변동비 합계를 계산할 수 없습니다."
+      },
+      {
+        "code": "DOWNSTREAM_UNKNOWN",
+        "severity": "blocking",
+        "metric_path": "mode_a.per_component.main.contribution_margin",
+        "dependency_paths": [
+          "mode_a.per_component.main.gross_profit",
+          "mode_a.per_component.main.variable_cost_total"
+        ],
+        "message": "gross_profit 또는 variable_cost_total이 UNKNOWN 또는 ERROR라 contribution_margin을 계산할 수 없습니다."
+      },
+      {
+        "code": "DOWNSTREAM_UNKNOWN",
+        "severity": "blocking",
+        "metric_path": "mode_a.per_component.main.contribution_margin_rate",
+        "dependency_paths": [
+          "mode_a.per_component.main.contribution_margin",
+          "mode_a.per_component.main.actual_price_ex_vat"
+        ],
+        "message": "contribution_margin 또는 actual_price_ex_vat이 확정되지 않아 비율을 계산할 수 없습니다."
+      }
+    ]
+  },
+  "blended": {
+    "status": "NOT_IMPLEMENTED"
+  },
+  "mode_b": {
+    "status": "INCOMPLETE",
+    "per_component": {
+      "main": {
+        "denominator": {
+          "value": 0.567,
+          "status": "OK",
+          "unit": "ratio"
+        },
+        "required_net_sales_ex_vat": {
+          "value": 89947.08994708996,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "required_gross_payment_incl_vat": {
+          "value": 98941.79894179896,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "required_selling_price": {
+          "value": 98941.79894179896,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "required_list_price": {
+          "value": null,
+          "status": "UNKNOWN",
+          "unit": "KRW"
+        },
+        "expected_contribution_margin": {
+          "value": 26984.126984126986,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "expected_contribution_margin_rate": {
+          "value": 0.3,
+          "status": "OK",
+          "unit": "ratio"
+        }
+      }
+    },
+    "warnings": [
+      {
+        "code": "MISSING_DEPENDENCY",
+        "severity": "blocking",
+        "metric_path": "mode_b.per_component.main.required_list_price",
+        "dependency_paths": [
+          "product.price_components[main].discount_rate"
+        ],
+        "message": "할인율이 미입력되어 목표 정가를 계산할 수 없습니다."
+      }
+    ]
+  },
+  "mode_c": {
+    "status": "OK",
+    "per_component": {
+      "main": {
+        "market_net_sales_ex_vat": {
+          "value": 99999.99999999999,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "market_gross_payment_incl_vat": {
+          "value": 110000,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "allowable_direct_cost": {
+          "value": 55699.999999999985,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "actual_direct_cost": {
+          "value": 50000.0,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "direct_cost_gap": {
+          "value": 5699.999999999985,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "expected_contribution_margin": {
+          "value": 30000.0,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "expected_contribution_margin_rate": {
+          "value": 0.30000000000000004,
+          "status": "OK",
+          "unit": "ratio"
+        }
+      }
+    },
+    "warnings": []
+  },
+  "bep": {
+    "status": "INCOMPLETE",
+    "per_component": {
+      "main": {
+        "analysis_period_basis": null,
+        "contribution_margin_per_unit": {
+          "value": null,
+          "status": "UNKNOWN",
+          "unit": "KRW"
+        },
+        "fixed_operating_cost": {
+          "value": 0.0,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "break_even_quantity_exact": {
+          "value": null,
+          "status": "UNKNOWN",
+          "unit": "units"
+        }
+      }
+    },
+    "warnings": [
+      {
+        "code": "MISSING_DEPENDENCY",
+        "severity": "blocking",
+        "metric_path": "bep.per_component.main.contribution_margin_per_unit",
+        "dependency_paths": [
+          "product.price_components[main].actual_price",
+          "product.price_components[main].actual_price",
+          "product.price_components[main].actual_price"
+        ],
+        "message": "판매가/VAT 또는 직접원가·변동비 항목이 미입력되었거나 공유비용 배부 규칙이 아직 지원되지 않아 단위당 Contribution Margin을 계산할 수 없습니다."
+      },
+      {
+        "code": "DOWNSTREAM_UNKNOWN",
+        "severity": "blocking",
+        "metric_path": "bep.per_component.main.break_even_quantity_exact",
+        "dependency_paths": [
+          "bep.per_component.main.contribution_margin_per_unit"
+        ],
+        "message": "contribution_margin_per_unit 또는 fixed_operating_cost가 미확정이라 손익분기 판매량을 계산할 수 없습니다."
+      }
+    ]
+  },
+  "meta": {
+    "missing_input_paths": [
+      "product.price_components[main].actual_price",
+      "product.price_components[main].discount_rate"
+    ]
+  }
+}

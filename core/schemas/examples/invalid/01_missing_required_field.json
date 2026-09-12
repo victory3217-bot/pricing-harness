@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.1",
+  "client_id": "sample_co_alpha",
+  "product": {
+    "name": "프리미엄 텀블러",
+    "pricing_model": "one_time",
+    "price_components": [
+      {
+        "component_id": "main",
+        "type": "one_time",
+        "actual_price": 35000,
+        "currency": "KRW",
+        "price_includes_vat": true
+      }
+    ]
+  },
+  "tax": { "vat_rate": 0.10 },
+  "fx": { "base_currency": "KRW", "reporting_currency": "KRW", "rate_base_per_reporting": 1 },
+  "costs": { "items": [] },
+  "meta": {
+    "notes": "INTENTIONALLY INVALID — 최상위 필수 필드 'case_id'가 누락되었습니다. required 검증 실패를 테스트하는 예제."
+  }
+}

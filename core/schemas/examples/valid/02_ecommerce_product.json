@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.1",
+  "client_id": "sample_co_beta",
+  "case_id": "sample_case_beta_001",
+  "product": {
+    "name": "오가닉 스킨케어 세트",
+    "pricing_model": "one_time",
+    "price_components": [
+      {
+        "component_id": "main",
+        "type": "one_time",
+        "actual_price": 59000,
+        "currency": "KRW",
+        "price_includes_vat": true
+      }
+    ]
+  },
+  "tax": { "vat_rate": 0.10 },
+  "fx": { "base_currency": "KRW", "reporting_currency": "KRW", "rate_base_per_reporting": 1 },
+  "costs": {
+    "items": [
+      { "item_id": "material_cost", "label": "내용물 원가", "cost_category": "product_service_direct_cost",
+        "amount": 15000, "rate": null, "currency": "KRW", "basis": "per_unit", "applies_to_component": "main" },
+      { "item_id": "packaging", "label": "포장/라벨", "cost_category": "product_service_direct_cost",
+        "amount": 2000, "rate": null, "currency": "KRW", "basis": "per_unit", "applies_to_component": "main" },
+      { "item_id": "marketplace_commission", "label": "오픈마켓 판매수수료", "cost_category": "variable_selling_delivery",
+        "amount": null, "rate": 0.13, "currency": null, "basis": "rate_of_net_sales", "applies_to_component": "main" },
+      { "item_id": "pg_fee", "label": "PG수수료", "cost_category": "variable_selling_delivery",
+        "amount": null, "rate": 0.028, "currency": null, "basis": "rate_of_gross_payment", "applies_to_component": "main" },
+      { "item_id": "shipping", "label": "배송비", "cost_category": "variable_selling_delivery",
+        "amount": 2500, "rate": null, "currency": "KRW", "basis": "per_order", "applies_to_component": "main" },
+      { "item_id": "marketing", "label": "마케팅비", "cost_category": "fixed_operating_cost",
+        "amount": 5000000, "rate": null, "currency": "KRW", "basis": "per_month", "applies_to_component": "shared",
+        "allocation_rule": "blended_only" },
+      { "item_id": "sga", "label": "판관비", "cost_category": "fixed_operating_cost",
+        "amount": 3000000, "rate": null, "currency": "KRW", "basis": "per_month", "applies_to_component": "shared",
+        "allocation_rule": "blended_only" }
+    ]
+  },
+  "targets": { "target_contribution_margin_rate": null },
+  "meta": {
+    "entered_by": "sample",
+    "entered_at": "2026-09-11",
+    "notes": "교육용 샘플 데이터 — 실제 기업 데이터 아님. 채널수수료(rate_of_net_sales)와 PG수수료(rate_of_gross_payment)를 구분해서 보여주는 예제."
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pricing-harness/schemas/scenario_compare_request.schema.json",
+  "title": "Pricing Harness — Scenario Compare Request",
+  "description": "Input to the Scenario Compare orchestration layer (docs/features/scenario_compare/SPEC.md). NOT a client_input variant and NOT nested inside analysis_result.schema.json — Scenario Compare spans multiple derived Client Inputs (one per scenario), not one (SPEC.md section 19). Overrides are grouped by target kind and addressed by component_id/item_id (SPEC.md section 4) — never by array index.",
+  "type": "object",
+  "required": ["base_input", "baseline_scenario_id", "scenarios"],
+  "additionalProperties": false,
+  "properties": {
+    "base_input": {
+      "$ref": "https://pricing-harness/schemas/client_input.schema.json",
+      "description": "A full, valid client_input — same schema as every other mode consumes, no new shape. Every scenario is a deep copy of this document with its own overrides applied (SPEC.md section 2)."
+    },
+    "baseline_scenario_id": {
+      "type": "string",
+      "description": "Must match exactly one scenarios[].scenario_id (SPEC.md section 13). Required, never inferred from list position."
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/definitions/scenario" },
+      "description": "SPEC.md section 16: Python core enforces only the >=2 lower bound, no upper bound."
+    }
+  },
+  "definitions": {
+    "scenario": {
+      "type": "object",
+      "required": ["scenario_id", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "scenario_id": { "type": "string" },
+        "label": { "type": "string" },
+        "overrides": { "$ref": "#/definitions/overrides" }
+      }
+    },
+    "overrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Every group is optional; omitting a group or a field within it means 'keep base_input's value' (SPEC.md section 5). A field present with value null means UNKNOWN, identical to a blank field on a hand-authored client_input — omitted and explicit-null are never conflated.",
+      "properties": {
+        "components": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/component_override" }
+        },
+        "cost_items": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/cost_item_override" }
+        },
+        "targets": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "target_contribution_margin_rate": { "type": ["number", "null"] }
+          }
+        },
+        "tax": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "vat_rate": { "type": ["number", "null"] }
+          }
+        },
+        "fx": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "rate_base_per_reporting": { "type": ["number", "null"] }
+          }
+        }
+      }
+    },
+    "component_override": {
+      "type": "object",
+      "required": ["component_id"],
+      "additionalProperties": false,
+      "description": "component_id addresses an existing product.price_components[].component_id in base_input (checked at Scenario Compare preflight, not by this schema alone — a schema-valid override can still name a component_id that doesn't exist in a particular base_input). Never overridable here: cost_category-equivalent fields, or the component_id itself (that IS the address, not a value).",
+      "properties": {
+        "component_id": { "type": "string" },
+        "actual_price": { "type": ["number", "null"] },
+        "target_market_price": { "type": ["number", "null"] },
+        "price_includes_vat": { "type": ["boolean", "null"] },
+        "discount_rate": { "type": ["number", "null"] }
+      }
+    },
+    "cost_item_override": {
+      "type": "object",
+      "required": ["item_id"],
+      "additionalProperties": false,
+      "description": "item_id addresses an existing costs.items[].item_id in base_input (checked at preflight). Never overridable here: cost_category, basis, applies_to_component, allocation_rule, or item_id itself — changing any of those would redefine what the item means, not just its value (SPEC.md section 4).",
+      "properties": {
+        "item_id": { "type": "string" },
+        "amount": { "type": ["number", "null"] },
+        "rate": { "type": ["number", "null"] }
+      }
+    }
+  }
+}

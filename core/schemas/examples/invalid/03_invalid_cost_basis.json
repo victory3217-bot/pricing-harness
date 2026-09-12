@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.1",
+  "client_id": "sample_co_alpha",
+  "case_id": "sample_case_alpha_invalid_basis",
+  "product": {
+    "name": "프리미엄 텀블러",
+    "pricing_model": "one_time",
+    "price_components": [
+      {
+        "component_id": "main",
+        "type": "one_time",
+        "actual_price": 35000,
+        "currency": "KRW",
+        "price_includes_vat": true
+      }
+    ]
+  },
+  "tax": { "vat_rate": 0.10 },
+  "fx": { "base_currency": "KRW", "reporting_currency": "KRW", "rate_base_per_reporting": 1 },
+  "costs": {
+    "items": [
+      { "item_id": "shipping", "label": "배송비", "cost_category": "variable_selling_delivery",
+        "amount": 3000, "rate": null, "currency": "KRW", "basis": "per_shipment_bundle", "applies_to_component": "main" }
+    ]
+  },
+  "meta": {
+    "notes": "INTENTIONALLY INVALID — basis = 'per_shipment_bundle'는 허용된 enum(per_unit/per_order/per_month/per_unit_per_month/per_visit/rate_of_gross_payment/rate_of_net_sales)에 없는 값입니다."
+  }
+}

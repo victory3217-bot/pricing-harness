@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.1",
+  "client_id": "sample_co_alpha",
+  "case_id": "sample_case_alpha_invalid_rate",
+  "product": {
+    "name": "프리미엄 텀블러",
+    "pricing_model": "one_time",
+    "price_components": [
+      {
+        "component_id": "main",
+        "type": "one_time",
+        "actual_price": 35000,
+        "currency": "KRW",
+        "price_includes_vat": true
+      }
+    ]
+  },
+  "tax": { "vat_rate": 0.10 },
+  "fx": { "base_currency": "KRW", "reporting_currency": "KRW", "rate_base_per_reporting": 1 },
+  "costs": {
+    "items": [
+      { "item_id": "pg_fee", "label": "PG수수료", "cost_category": "variable_selling_delivery",
+        "amount": null, "rate": 1.5, "currency": null, "basis": "rate_of_gross_payment", "applies_to_component": "main" }
+    ]
+  },
+  "meta": {
+    "notes": "INTENTIONALLY INVALID — pg_fee.rate = 1.5로, 스키마의 rate maximum(1) 제약을 위반합니다. 150% 수수료율은 존재할 수 없는 값입니다."
+  }
+}

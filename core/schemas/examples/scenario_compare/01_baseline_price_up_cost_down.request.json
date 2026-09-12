@@ -1,0 +1,123 @@
+{
+  "base_input": {
+    "schema_version": "1.1",
+    "client_id": "sample_co_theta",
+    "case_id": "sample_case_theta_scenario_compare_001",
+    "product": {
+      "name": "샘플 정기배송 박스",
+      "pricing_model": "one_time",
+      "price_components": [
+        {
+          "component_id": "main",
+          "type": "one_time",
+          "actual_price": 1000,
+          "target_market_price": 1000,
+          "currency": "KRW",
+          "price_includes_vat": false,
+          "discount_rate": 0
+        }
+      ]
+    },
+    "tax": {
+      "vat_rate": 0.1
+    },
+    "fx": {
+      "base_currency": "KRW",
+      "reporting_currency": "KRW",
+      "rate_base_per_reporting": 1
+    },
+    "costs": {
+      "items": [
+        {
+          "item_id": "direct",
+          "label": "직접원가",
+          "cost_category": "product_service_direct_cost",
+          "amount": 400,
+          "rate": null,
+          "currency": "KRW",
+          "basis": "per_unit",
+          "applies_to_component": "main"
+        },
+        {
+          "item_id": "var_fixed",
+          "label": "변동비",
+          "cost_category": "variable_selling_delivery",
+          "amount": 100,
+          "rate": null,
+          "currency": "KRW",
+          "basis": "per_order",
+          "applies_to_component": "main"
+        },
+        {
+          "item_id": "var_net_sales",
+          "label": "매출액기준 변동비",
+          "cost_category": "variable_selling_delivery",
+          "amount": null,
+          "rate": 0,
+          "currency": null,
+          "basis": "rate_of_net_sales",
+          "applies_to_component": "main"
+        },
+        {
+          "item_id": "var_gross_payment",
+          "label": "결제액기준 변동비",
+          "cost_category": "variable_selling_delivery",
+          "amount": null,
+          "rate": 0,
+          "currency": null,
+          "basis": "rate_of_gross_payment",
+          "applies_to_component": "main"
+        },
+        {
+          "item_id": "fixed_ops",
+          "label": "고정운영비",
+          "cost_category": "fixed_operating_cost",
+          "amount": 50000,
+          "rate": null,
+          "currency": "KRW",
+          "basis": "per_month",
+          "applies_to_component": "main"
+        }
+      ]
+    },
+    "targets": {
+      "target_contribution_margin_rate": 0.3
+    },
+    "meta": {
+      "entered_by": "sample",
+      "entered_at": "2026-09-12",
+      "notes": "교육용 샘플 데이터 — 실제 기업 데이터 아님. Scenario Compare의 최소 대표 케이스(CASE.md TC1/TC2/TC4): baseline, price increase, direct cost reduction."
+    }
+  },
+  "baseline_scenario_id": "A_baseline",
+  "scenarios": [
+    {
+      "scenario_id": "A_baseline",
+      "label": "현재 가격 유지"
+    },
+    {
+      "scenario_id": "B_price_up",
+      "label": "가격 인상 (1000 -> 1200)",
+      "overrides": {
+        "components": [
+          {
+            "component_id": "main",
+            "actual_price": 1200
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "D_cost_down",
+      "label": "직접원가 절감 (400 -> 300)",
+      "overrides": {
+        "cost_items": [
+          {
+            "item_id": "direct",
+            "amount": 300
+          }
+        ]
+      }
+    }
+  ]
+}

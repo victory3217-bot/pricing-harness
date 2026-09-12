@@ -1,0 +1,208 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pricing-harness/schemas/client_input.schema.json",
+  "title": "Pricing Harness – Client Input",
+  "description": "One product's price/cost input for the Pricing Engine. null = UNKNOWN (not yet entered), 0 = confirmed zero, a number = an entered value. This wrapping is intentionally NOT used here (see analysis_result.schema.json for the {value,status,unit} pattern, which applies only to computed outputs).",
+  "type": "object",
+  "required": ["schema_version", "client_id", "case_id", "product", "tax", "fx", "costs"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string" },
+    "client_id": { "type": "string" },
+    "case_id": { "type": "string" },
+
+    "product": {
+      "type": "object",
+      "required": ["name", "pricing_model", "price_components"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "pricing_model": {
+          "type": "string",
+          "enum": ["one_time", "recurring", "hybrid"],
+          "description": "Overall shape of the product's pricing. Must be consistent with the types present in price_components."
+        },
+        "price_components": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/price_component" }
+        }
+      }
+    },
+
+    "tax": {
+      "type": "object",
+      "required": ["vat_rate"],
+      "additionalProperties": false,
+      "properties": {
+        "vat_rate": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "null = unknown. Whether this rate is even needed for a given price_component depends on that component's price_includes_vat flag — see core/schemas/dependency_rules.md."
+        }
+      }
+    },
+
+    "fx": {
+      "type": "object",
+      "required": ["base_currency", "reporting_currency", "rate_base_per_reporting"],
+      "additionalProperties": false,
+      "properties": {
+        "base_currency": { "type": "string", "description": "Currency most cost items are denominated in, e.g. \"KRW\"." },
+        "reporting_currency": { "type": "string", "description": "Currency Analysis Result / Dashboard / Report will show, e.g. \"USD\"." },
+        "rate_base_per_reporting": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "How many units of base_currency equal 1 unit of reporting_currency. null = unknown. Set to 1 when base_currency == reporting_currency."
+        }
+      }
+    },
+
+    "costs": {
+      "type": "object",
+      "required": ["items"],
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/cost_item" }
+        }
+      }
+    },
+
+    "targets": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "target_contribution_margin_rate is used by MODE B and MODE C (global — the same rate applies to every price_component; per-component override not implemented). There is deliberately no target_market_price field here — MODE C's market price is product.price_components[].target_market_price (per-component, so it can differ per component and shares that component's price_includes_vat/currency), not a global scalar. An earlier draft placed a target_market_price field here; it was never read by any implemented mode and has been removed rather than left as an unused, confusingly-named duplicate of the per-component field. Always valid to leave target_contribution_margin_rate null.",
+      "properties": {
+        "target_contribution_margin_rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      }
+    },
+
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "entered_by": { "type": "string" },
+        "entered_at": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    }
+  },
+
+  "definitions": {
+    "evidence": {
+      "type": "object",
+      "description": "Optional provenance for a price or cost value. Used downstream to distinguish Fact / Estimate / Assumption in AI-generated pricing strategy reports.",
+      "additionalProperties": false,
+      "properties": {
+        "source_type": { "type": "string", "description": "e.g. \"invoice\", \"quote\", \"interview\", \"internal_spreadsheet\", \"public_filing\"." },
+        "source_ref": { "type": "string", "description": "File name, URL, or citation." },
+        "as_of_date": { "type": "string" },
+        "verification_status": {
+          "type": "string",
+          "enum": ["confirmed", "estimated", "unverified"]
+        }
+      }
+    },
+
+    "price_component": {
+      "type": "object",
+      "required": ["component_id", "type", "actual_price", "currency", "price_includes_vat"],
+      "additionalProperties": false,
+      "properties": {
+        "component_id": { "type": "string", "description": "Referenced by cost_item.applies_to_component, e.g. \"hardware\", \"saas_subscription\"." },
+        "type": {
+          "type": "string",
+          "enum": ["one_time", "recurring_monthly", "recurring_annual", "usage_based"]
+        },
+        "actual_price": { "type": ["number", "null"] },
+        "currency": { "type": "string" },
+        "price_includes_vat": {
+          "type": ["boolean", "null"],
+          "description": "null = unknown whether VAT is included. See core/schemas/dependency_rules.md for how this combines with tax.vat_rate."
+        },
+        "discount_rate": {
+          "type": ["number", "null"],
+          "description": "MODE B's single discount rate for inverting required_selling_price into required_list_price on this component: list_price = selling_price / (1 - discount_rate). null = UNKNOWN (required_list_price stays UNKNOWN). 0 = no discount. 0 < rate < 1 = normal. rate >= 1 or a negative rate is a valid *input* but an unsolvable *inversion* — MODE B reports required_list_price as ERROR rather than the schema rejecting the document, so this field is intentionally left unbounded here (unlike cost_item.rate). Distinct from discount_schedule below: discount_schedule is a period/condition-based discount *policy* (multiple rates over time), while discount_rate is the single current-period rate MODE B solves against right now."
+        },
+        "discount_schedule": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from_period", "to_period", "discount_rate"],
+            "additionalProperties": false,
+            "properties": {
+              "from_period": { "type": "integer", "minimum": 1 },
+              "to_period": { "type": "integer", "minimum": 1 },
+              "discount_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+              "condition": { "type": "string" }
+            }
+          }
+        },
+        "target_market_price": {
+          "type": ["number", "null"],
+          "description": "MODE C's canonical market-price input: the externally-given, effective (discount already applied, if any) transaction selling price for this component — not a pre-discount list price. null = UNKNOWN. 0 = explicit zero (economically unusual but valid — not the same as UNKNOWN). Shares this SAME component's price_includes_vat and currency for VAT-basis/currency interpretation (see common.resolve_price_basis()) — it does not have its own copies of either field. MODE C v0.1 does not read discount_rate against this field; if a future need arises to target-cost against a list price instead, that is a separate addendum, not implemented here. Distinct from actual_price (MODE A's current-price field, which MODE C never reads) and from required_selling_price/required_list_price (MODE B's *outputs*, not an input)."
+        },
+        "evidence": { "$ref": "#/definitions/evidence" }
+      }
+    },
+
+    "cost_item": {
+      "type": "object",
+      "required": ["item_id", "label", "cost_category", "amount", "rate", "currency", "basis", "applies_to_component"],
+      "additionalProperties": true,
+      "properties": {
+        "item_id": { "type": "string" },
+        "label": { "type": "string" },
+        "cost_category": {
+          "type": "string",
+          "enum": ["product_service_direct_cost", "variable_selling_delivery", "fixed_operating_cost"],
+          "description": "product_service_direct_cost feeds Gross Profit. variable_selling_delivery feeds Contribution Margin only (not Gross Profit). fixed_operating_cost is excluded from Contribution Margin and used only for BEP / operating-profit estimates."
+        },
+        "amount": {
+          "type": ["number", "null"],
+          "description": "Use for money-valued costs. Leave null and use rate instead for percentage-of-revenue costs."
+        },
+        "rate": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Use for percentage-of-revenue costs (e.g. channel commission, PG fee). Leave null and use amount instead for money-valued costs."
+        },
+        "currency": {
+          "type": ["string", "null"],
+          "description": "null when the item is rate-based (rate has no currency)."
+        },
+        "basis": {
+          "type": "string",
+          "enum": [
+            "per_unit",
+            "per_order",
+            "per_month",
+            "per_unit_per_month",
+            "per_visit",
+            "rate_of_gross_payment",
+            "rate_of_net_sales"
+          ],
+          "description": "For cost_category=fixed_operating_cost specifically: basis (typically per_month) states the analysis period this cost figure is already denominated in — it is period CONTEXT for BEP (see docs/features/bep/SPEC.md section 4/12, analysis_result.bep.per_component[].analysis_period_basis), never a quantity unit itself. BEP requires every fixed_operating_cost item it sums for one component to share the same basis (INCONSISTENT_FIXED_COST_BASIS otherwise) — the schema does not enforce this across items, it is a BEP-internal rule."
+        },
+        "applies_to_component": {
+          "type": "string",
+          "description": "Must match a product.price_components[].component_id, or the literal \"shared\" for costs common to all components."
+        },
+        "allocation_rule": {
+          "type": "string",
+          "enum": ["direct", "by_component_revenue", "fixed_share", "blended_only"],
+          "description": "Only meaningful when applies_to_component = \"shared\". Tells the engine how to split this cost across components: direct = don't split (used as-is where it already applies), by_component_revenue = allocate proportionally to each component's revenue, fixed_share = split by a fixed ratio configured elsewhere, blended_only = never allocated per-component, only appears in the future blended (whole-contract) view. NOTE: 'shared' + 'direct' together is a semantic contradiction ('shared' = not attributed to one component, 'direct' = already attributed to one) — every implemented mode (A/B/C) treats this combination as an invalid configuration (ERROR, code INVALID_ALLOCATION_CONFIGURATION), never as a valid 'use as-is' shortcut. See core/schemas/dependency_rules.md section 4."
+        },
+        "frequency_per_year": {
+          "type": "number",
+          "description": "Optional, basis-specific field — e.g. required to annualize a per_visit cost. Not one of the 7 required fields."
+        },
+        "evidence": { "$ref": "#/definitions/evidence" }
+      }
+    }
+  }
+}

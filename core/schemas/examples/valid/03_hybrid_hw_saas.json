@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.1",
+  "client_id": "sample_co_gamma",
+  "case_id": "sample_case_gamma_001",
+  "product": {
+    "name": "스마트팩토리 진동 센서 모니터링",
+    "pricing_model": "hybrid",
+    "price_components": [
+      {
+        "component_id": "hardware",
+        "type": "one_time",
+        "actual_price": 450000,
+        "currency": "KRW",
+        "price_includes_vat": false
+      },
+      {
+        "component_id": "saas_subscription",
+        "type": "recurring_monthly",
+        "actual_price": 35000,
+        "currency": "KRW",
+        "price_includes_vat": false,
+        "discount_schedule": [
+          { "from_period": 1, "to_period": 3, "discount_rate": 0.3, "condition": "초기 3개월 온보딩 할인" }
+        ]
+      }
+    ]
+  },
+  "tax": { "vat_rate": 0.10 },
+  "fx": { "base_currency": "KRW", "reporting_currency": "USD", "rate_base_per_reporting": 1350 },
+  "costs": {
+    "items": [
+      { "item_id": "bom", "label": "BOM/부품원가", "cost_category": "product_service_direct_cost",
+        "amount": 180000, "rate": null, "currency": "KRW", "basis": "per_unit", "applies_to_component": "hardware" },
+      { "item_id": "assembly", "label": "조립/QC원가", "cost_category": "product_service_direct_cost",
+        "amount": 25000, "rate": null, "currency": "KRW", "basis": "per_unit", "applies_to_component": "hardware" },
+      { "item_id": "install", "label": "설치원가", "cost_category": "variable_selling_delivery",
+        "amount": 40000, "rate": null, "currency": "KRW", "basis": "per_unit", "applies_to_component": "hardware",
+        "allocation_rule": "direct" },
+      { "item_id": "cloud_opex", "label": "클라우드/서버원가", "cost_category": "product_service_direct_cost",
+        "amount": 4500, "rate": null, "currency": "KRW", "basis": "per_unit_per_month", "applies_to_component": "saas_subscription" },
+      { "item_id": "pg_fee", "label": "PG수수료", "cost_category": "variable_selling_delivery",
+        "amount": null, "rate": 0.025, "currency": null, "basis": "rate_of_gross_payment", "applies_to_component": "shared",
+        "allocation_rule": "by_component_revenue" },
+      { "item_id": "channel_fee", "label": "채널수수료", "cost_category": "variable_selling_delivery",
+        "amount": null, "rate": 0, "currency": null, "basis": "rate_of_net_sales", "applies_to_component": "shared",
+        "allocation_rule": "by_component_revenue",
+        "evidence": { "source_type": "interview", "source_ref": "영업팀 확인 — 직판, 채널 파트너 없음", "as_of_date": "2026-09-01", "verification_status": "confirmed" }
+      },
+      { "item_id": "maintenance_visit", "label": "정기점검 출장원가", "cost_category": "variable_selling_delivery",
+        "amount": 150000, "rate": null, "currency": "KRW", "basis": "per_visit", "applies_to_component": "shared",
+        "allocation_rule": "fixed_share", "frequency_per_year": 4 },
+      { "item_id": "sga", "label": "판관비", "cost_category": "fixed_operating_cost",
+        "amount": 8000000, "rate": null, "currency": "KRW", "basis": "per_month", "applies_to_component": "shared",
+        "allocation_rule": "blended_only" },
+      { "item_id": "marketing", "label": "마케팅비", "cost_category": "fixed_operating_cost",
+        "amount": 6000000, "rate": null, "currency": "KRW", "basis": "per_month", "applies_to_component": "shared",
+        "allocation_rule": "blended_only" }
+    ]
+  },
+  "targets": { "target_contribution_margin_rate": null },
+  "meta": {
+    "entered_by": "sample",
+    "entered_at": "2026-09-11",
+    "notes": "교육용 가상 예제 — 실제 기업 데이터 아님. Fictional hybrid HW+SaaS example; no real client data. price_includes_vat=false + vat_rate 존재 조합(둘 다 안전하게 OK 처리되는 케이스), 명시적 rate=0(channel_fee), allocation_rule 3종을 모두 보여줍니다."
+  }
+}

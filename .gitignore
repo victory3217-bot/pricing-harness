@@ -1,0 +1,16 @@
+# Real client data — never public. Only samples/ and core/schemas/examples/ are safe to publish.
+clients/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# generated workbooks / temp
+*.xlsx.tmp
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
