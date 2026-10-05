@@ -1,5 +1,13 @@
 [English](README.md) | [한국어](README.ko.md)
 
+## 가격 진단 계산기
+
+브라우저에서 Pricing Harness 계산기를 바로 사용할 수 있습니다.
+
+**[Pricing Harness 가격 진단 계산기 열기](https://victory3217-bot.github.io/pricing-harness/calculator/)**
+
+별도의 설치나 GitHub 계정 없이 사용할 수 있습니다.
+
 # Pricing Harness
 
 여러 클라이언트 참여(engagement)에 걸쳐 반복적으로 재사용할 수 있는 가격 관리·가격 전략 엔진입니다 —

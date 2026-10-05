@@ -1,5 +1,13 @@
 [English](README.md) | [한국어](README.ko.md)
 
+## Live Calculator
+
+Try the Pricing Harness calculator directly in your browser:
+
+**[Open the Pricing Harness Calculator](https://victory3217-bot.github.io/pricing-harness/calculator/)**
+
+No installation or GitHub account is required.
+
 # Pricing Harness
 
 A reusable pricing-management and pricing-strategy engine for repeated use across multiple
