@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가격 진단 계산기</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    --bg: #f5f3ee;
+    --surface: #ffffff;
+    --surface-sunken: #eeece4;
+    --border: #dcd7c9;
+    --border-strong: #c7c1ad;
+    --text: #201f1a;
+    --text-muted: #6b6759;
+    --text-faint: #9a9585;
+    --accent: #2f6f5e;
+    --accent-strong: #1e4c40;
+    --accent-soft: #e3ede9;
+    --ok: #2f6f5e;
+    --ok-soft: #e3ede9;
+    --warn: #a2661f;
+    --warn-soft: #f3e6d2;
+    --error: #a5372f;
+    --error-soft: #f3ded9;
+    --unknown: #857f6e;
+    --unknown-soft: #eae8de;
+    --shadow: 0 1px 2px rgba(32,31,26,0.06), 0 8px 24px -12px rgba(32,31,26,0.18);
+    --radius-s: 6px;
+    --radius-m: 10px;
+    --radius-l: 16px;
+    --font-display: "Noto Serif KR", "Nanum Myeongjo", serif;
+    --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+    --font-mono: "IBM Plex Mono", "Noto Sans Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg: #17181a;
+      --surface: #1f2123;
+      --surface-sunken: #191a1c;
+      --border: #34373a;
+      --border-strong: #464a4d;
+      --text: #ece9e1;
+      --text-muted: #a4a094;
+      --text-faint: #75726a;
+      --accent: #6cbba3;
+      --accent-strong: #8fd0bb;
+      --accent-soft: #223330;
+      --ok: #6cbba3;
+      --ok-soft: #1f3430;
+      --warn: #d6a35a;
+      --warn-soft: #362d1e;
+      --error: #de8377;
+      --error-soft: #3a2321;
+      --unknown: #a19c8c;
+      --unknown-soft: #2a2b26;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg: #17181a;
+    --surface: #1f2123;
+    --surface-sunken: #191a1c;
+    --border: #34373a;
+    --border-strong: #464a4d;
+    --text: #ece9e1;
+    --text-muted: #a4a094;
+    --text-faint: #75726a;
+    --accent: #6cbba3;
+    --accent-strong: #8fd0bb;
+    --accent-soft: #223330;
+    --ok: #6cbba3;
+    --ok-soft: #1f3430;
+    --warn: #d6a35a;
+    --warn-soft: #362d1e;
+    --error: #de8377;
+    --error-soft: #3a2321;
+    --unknown: #a19c8c;
+    --unknown-soft: #2a2b26;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing: border-box; }
+  body{
+    margin:0; background: var(--bg); color: var(--text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection{ background: var(--accent-soft); color: var(--accent-strong); }
+  @media (prefers-reduced-motion: reduce){ *{ animation: none !important; transition: none !important; } }
+
+  .num{ font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  .page{ max-width: 1180px; margin: 0 auto; padding: 28px 20px 64px; }
+
+  header.top{
+    display:flex; flex-wrap: wrap; align-items: baseline; gap: 12px 20px;
+    padding-bottom: 18px; margin-bottom: 22px; border-bottom: 1px solid var(--border);
+  }
+  header.top h1{
+    font-family: var(--font-display); font-weight: 700; font-size: 27px;
+    margin: 0; letter-spacing: -0.01em; text-wrap: balance;
+  }
+  header.top .sub{ color: var(--text-muted); font-size: 14px; flex: 1 1 260px; }
+  .proto-chip{
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.03em;
+    color: var(--warn); background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    padding: 5px 10px; border-radius: 999px; white-space: nowrap;
+  }
+
+  .layout{ display: grid; grid-template-columns: 380px 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 900px){ .layout{ grid-template-columns: 1fr; } }
+
+  .panel{
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-l);
+    box-shadow: var(--shadow);
+  }
+
+  .panel-section{ padding: 18px 20px; border-bottom: 1px solid var(--border); }
+  .panel-section:last-child{ border-bottom: none; }
+  .panel-section h2{
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--text-muted); margin: 0 0 14px;
+  }
+
+  .field{ display:flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+  .field:last-child{ margin-bottom: 0; }
+  .field label{ font-size: 12.5px; color: var(--text-muted); font-weight: 500; }
+  .field .hint{ font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+  .row2{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  input[type="text"], input[type="number"], select{
+    font: inherit; font-family: var(--font-mono); font-size: 13.5px;
+    background: var(--surface-sunken); color: var(--text); border: 1px solid var(--border);
+    border-radius: var(--radius-s); padding: 8px 10px; width: 100%;
+  }
+  select{ font-family: var(--font-body); }
+  input:focus, select:focus, button:focus-visible{
+    outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent);
+  }
+  .toggle-row{ display:flex; align-items:center; gap:8px; font-size: 13px; color: var(--text); }
+  .toggle-row input{ width: 15px; height: 15px; accent-color: var(--accent); }
+
+  .item-row{
+    display:grid; grid-template-columns: 1.3fr 1fr 1fr auto; gap: 8px; align-items:center;
+    padding: 9px 0; border-bottom: 1px dashed var(--border);
+  }
+  .item-row:last-of-type{ border-bottom: none; }
+  .item-row input{ font-size: 12.5px; padding: 7px 8px; }
+  .item-row select{ font-size: 12px; padding: 7px 8px; }
+  .icon-btn{
+    width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-faint); cursor: pointer; font-size: 15px;
+    display:flex; align-items:center; justify-content:center; line-height: 1;
+  }
+  .icon-btn:hover{ color: var(--error); border-color: var(--error); }
+  .add-btn{
+    margin-top: 10px; width: 100%; padding: 8px; border-radius: var(--radius-s);
+    border: 1px dashed var(--border-strong); background: transparent; color: var(--accent);
+    font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .add-btn:hover{ background: var(--accent-soft); }
+  .items-empty{ font-size: 12px; color: var(--text-faint); padding: 6px 0; }
+
+  /* Results side */
+  .tabs{ display:flex; gap: 4px; padding: 10px 10px 0; flex-wrap: wrap; }
+  .tab{
+    font: inherit; font-size: 13px; font-weight: 600; color: var(--text-muted);
+    background: transparent; border: 1px solid transparent; border-bottom: none;
+    padding: 9px 16px; border-radius: 10px 10px 0 0; cursor: pointer;
+  }
+  .tab[aria-selected="true"]{
+    color: var(--accent-strong); background: var(--surface); border-color: var(--border);
+    position: relative; top: 1px;
+  }
+  .tab:hover:not([aria-selected="true"]){ color: var(--text); }
+  .tab .q{ display:block; font-size: 10.5px; font-weight: 500; color: var(--text-faint); margin-top: 1px; }
+  .tab[aria-selected="true"] .q{ color: var(--text-muted); }
+
+  .tabpanel{ border-top: 1px solid var(--border); padding: 22px 24px 26px; }
+  .tabpanel[hidden]{ display:none; }
+
+  .module-status{
+    display:inline-flex; align-items:center; gap: 7px; font-size: 12px; font-weight: 700;
+    padding: 5px 11px; border-radius: 999px; margin-bottom: 16px; letter-spacing: 0.02em;
+  }
+  .module-status .dot{ width: 7px; height:7px; border-radius: 50%; background: currentColor; }
+  .status-OK{ color: var(--ok); background: var(--ok-soft); }
+  .status-INCOMPLETE{ color: var(--unknown); background: var(--unknown-soft); }
+  .status-ERROR{ color: var(--error); background: var(--error-soft); }
+  .status-NOT_APPLICABLE{ color: var(--unknown); background: var(--unknown-soft); }
+
+  .metric-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 12px; }
+  .metric{
+    border: 1px solid var(--border); border-radius: var(--radius-m); padding: 13px 14px;
+    background: var(--surface-sunken); display:flex; flex-direction:column; gap: 6px;
+  }
+  .metric.hero{ background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+  .metric .m-label{ font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+  .metric .m-value{ font-family: var(--font-mono); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .metric .m-value.small{ font-size: 15px; }
+  .metric .m-pill{
+    align-self: flex-start; font-size: 10px; font-weight: 700; letter-spacing: 0.03em;
+    padding: 2px 7px; border-radius: 999px; text-transform: uppercase;
+  }
+  .pill-OK{ color: var(--ok); background: var(--ok-soft); }
+  .pill-UNKNOWN{ color: var(--unknown); background: var(--unknown-soft); }
+  .pill-ESTIMATED{ color: var(--warn); background: var(--warn-soft); }
+  .pill-ERROR{ color: var(--error); background: var(--error-soft); }
+  .pill-NOT_APPLICABLE{ color: var(--unknown); background: var(--unknown-soft); }
+  .metric .m-note{ font-size: 11px; color: var(--text-faint); line-height: 1.4; }
+
+  .waterfall{ margin-top: 20px; }
+  .waterfall h3{ font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 0 0 10px; }
+  .wf-row{ display:grid; grid-template-columns: 108px 1fr 108px; align-items:center; gap: 10px; margin-bottom: 7px; }
+  .wf-row .wf-label{ font-size: 12px; color: var(--text-muted); }
+  .wf-row .wf-value{ font-family: var(--font-mono); font-size: 12.5px; text-align:right; font-variant-numeric: tabular-nums; }
+  .wf-track{ height: 16px; border-radius: 5px; background: var(--surface-sunken); border: 1px solid var(--border); overflow:hidden; }
+  .wf-fill{ height: 100%; border-radius: 4px; }
+  .wf-fill.price{ background: var(--text-faint); }
+  .wf-fill.direct{ background: var(--warn); }
+  .wf-fill.variable{ background: color-mix(in srgb, var(--warn) 55%, var(--accent)); }
+  .wf-fill.cm{ background: var(--accent); }
+
+  .warn-box{
+    margin-top: 18px; border: 1px solid color-mix(in srgb, var(--error) 40%, var(--border));
+    background: var(--error-soft); border-radius: var(--radius-m); padding: 12px 14px;
+    font-size: 12.5px; color: var(--text); line-height: 1.55;
+  }
+  .warn-box.info{ border-color: color-mix(in srgb, var(--unknown) 40%, var(--border)); background: var(--unknown-soft); }
+  .warn-box strong{ color: var(--error); }
+  .warn-box.info strong{ color: var(--unknown); }
+
+  footer.note{
+    margin-top: 26px; font-size: 11.5px; color: var(--text-faint); line-height: 1.6;
+    border-top: 1px solid var(--border); padding-top: 14px;
+  }
+  footer.note code{ font-family: var(--font-mono); background: var(--surface-sunken); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>가격 진단 계산기</h1>
+    <div class="sub">단일 상품의 판매가·원가 구조를 입력하면 현재가 진단, 목표가, 허용원가, 손익분기점을 즉시 계산합니다.</div>
+    <span class="proto-chip">프로토타입 · Python Core 미러링</span>
+  </header>
+
+  <div class="layout">
+    <!-- INPUT PANEL -->
+    <div class="panel" id="input-panel">
+      <div class="panel-section">
+        <h2>판매가 &amp; 부가세</h2>
+        <div class="field">
+          <label for="price">실제 판매가 (KRW)</label>
+          <input type="number" id="price" value="35000" min="0" step="100">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="vat">부가세율 (%)</label>
+            <input type="number" id="vat" value="10" min="0" max="100" step="0.5">
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <div class="toggle-row"><input type="checkbox" id="includesVat" checked><label for="includesVat">위 가격은 VAT 포함가</label></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h2>직접원가 (product/service direct cost)</h2>
+        <div id="direct-items"></div>
+        <button class="add-btn" id="add-direct" type="button">+ 직접원가 항목 추가</button>
+      </div>
+
+      <div class="panel-section">
+        <h2>변동비 (variable selling/delivery)</h2>
+        <div id="variable-items"></div>
+        <button class="add-btn" id="add-variable" type="button">+ 변동비 항목 추가</button>
+      </div>
+
+      <div class="panel-section">
+        <h2>고정운영비 &amp; 목표</h2>
+        <div class="field">
+          <label for="fixedCost">기간당 고정운영비 합계 (KRW)</label>
+          <input type="number" id="fixedCost" value="2000000" min="0" step="10000">
+          <span class="hint">BEP 계산에 사용 — 임대료·인건비·판관비 등 기간 합계</span>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="targetCmr">목표 공헌이익률 (%)</label>
+            <input type="number" id="targetCmr" value="45" min="0" max="99" step="0.5">
+            <span class="hint">MODE B에 사용</span>
+          </div>
+          <div class="field">
+            <label for="discountRate">정가 대비 할인율 (%)</label>
+            <input type="number" id="discountRate" value="0" min="0" max="99" step="1">
+            <span class="hint">MODE B 정가 역산</span>
+          </div>
+        </div>
+        <div class="field">
+          <label for="marketPrice">목표 시장가격 (KRW)</label>
+          <input type="number" id="marketPrice" value="32000" min="0" step="100">
+          <span class="hint">MODE C에 사용 — 외부에서 주어진 판매가</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS PANEL -->
+    <div class="panel">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="tabbtn-a" aria-selected="true" data-tab="a">MODE A<span class="q">현재가 진단</span></button>
+        <button class="tab" role="tab" id="tabbtn-b" aria-selected="false" data-tab="b">MODE B<span class="q">목표 가격</span></button>
+        <button class="tab" role="tab" id="tabbtn-c" aria-selected="false" data-tab="c">MODE C<span class="q">허용 원가</span></button>
+        <button class="tab" role="tab" id="tabbtn-bep" aria-selected="false" data-tab="bep">BEP<span class="q">손익분기</span></button>
+      </div>
+
+      <div class="tabpanel" id="tab-a" role="tabpanel"></div>
+      <div class="tabpanel" id="tab-b" role="tabpanel" hidden></div>
+      <div class="tabpanel" id="tab-c" role="tabpanel" hidden></div>
+      <div class="tabpanel" id="tab-bep" role="tabpanel" hidden></div>
+    </div>
+  </div>
+
+  <footer class="note">
+    단일 컴포넌트 상품을 가정한 단순화 버전이며, shared-cost 배분·다중 컴포넌트·통화 환산 등 <code>core/engine</code>의 일부 규칙은 반영하지 않았습니다.
+    실제 컨설팅 산출물은 <code>core/engine</code>의 Python 계산 결과를 기준(source of truth)으로 삼아야 합니다.
+  </footer>
+</div>
+
+<script>
+(function(){
+  const $ = (sel, root) => (root||document).querySelector(sel);
+  const $$ = (sel, root) => Array.from((root||document).querySelectorAll(sel));
+
+  const fmt = (n, digits=0) => {
+    if (n === null || n === undefined || Number.isNaN(n)) return "—";
+    return n.toLocaleString('ko-KR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  };
+  const fmtPct = (r) => (r === null || r === undefined || Number.isNaN(r)) ? "—" : (r*100).toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + "%";
+
+  // ---------- dynamic item rows ----------
+  let directItems = [
+    { label: "자재원가", amount: 12000 },
+    { label: "포장비", amount: 1500 },
+  ];
+  let variableItems = [
+    { label: "PG수수료", kind: "gross_payment", amount: null, rate: 2.5 },
+    { label: "배송비", kind: "flat", amount: 3000, rate: null },
+  ];
+
+  function renderDirectItems(){
+    const host = $("#direct-items");
+    host.innerHTML = "";
+    if (directItems.length === 0){
+      host.innerHTML = '<div class="items-empty">항목 없음 — 직접원가 0원으로 계산됩니다.</div>';
+    }
+    directItems.forEach((item, i) => {
+      const row = document.createElement("div");
+      row.className = "item-row";
+      row.style.gridTemplateColumns = "1.4fr 1fr auto";
+      row.innerHTML = `
+        <input type="text" data-idx="${i}" data-f="label" value="${item.label}" placeholder="항목명">
+        <input type="number" data-idx="${i}" data-f="amount" value="${item.amount}" placeholder="금액(KRW)">
+        <button class="icon-btn" type="button" data-remove="${i}" aria-label="삭제">×</button>
+      `;
+      host.appendChild(row);
+    });
+    host.oninput = (e) => {
+      const idx = e.target.getAttribute("data-idx");
+      if (idx === null) return;
+      const f = e.target.getAttribute("data-f");
+      directItems[idx][f] = f === "amount" ? parseFloat(e.target.value) : e.target.value;
+      compute();
+    };
+    host.onclick = (e) => {
+      const idx = e.target.getAttribute("data-remove");
+      if (idx === null) return;
+      directItems.splice(idx, 1);
+      renderDirectItems(); compute();
+    };
+  }
+
+  function renderVariableItems(){
+    const host = $("#variable-items");
+    host.innerHTML = "";
+    if (variableItems.length === 0){
+      host.innerHTML = '<div class="items-empty">항목 없음 — 변동비 0원으로 계산됩니다.</div>';
+    }
+    variableItems.forEach((item, i) => {
+      const row = document.createElement("div");
+      row.className = "item-row";
+      const isRate = item.kind !== "flat";
+      row.innerHTML = `
+        <input type="text" data-idx="${i}" data-f="label" value="${item.label}" placeholder="항목명">
+        <select data-idx="${i}" data-f="kind">
+          <option value="flat" ${item.kind==='flat'?'selected':''}>정액</option>
+          <option value="net_sales" ${item.kind==='net_sales'?'selected':''}>순매출 대비 %</option>
+          <option value="gross_payment" ${item.kind==='gross_payment'?'selected':''}>지불액 대비 %</option>
+        </select>
+        <input type="number" data-idx="${i}" data-f="value" value="${isRate ? (item.rate ?? '') : (item.amount ?? '')}" placeholder="${isRate ? '요율(%)' : '금액(KRW)'}">
+        <button class="icon-btn" type="button" data-remove="${i}" aria-label="삭제">×</button>
+      `;
+      host.appendChild(row);
+    });
+    host.oninput = (e) => {
+      const idx = e.target.getAttribute("data-idx");
+      if (idx === null) return;
+      const f = e.target.getAttribute("data-f");
+      const item = variableItems[idx];
+      if (f === "label") item.label = e.target.value;
+      else if (f === "kind") { item.kind = e.target.value; renderVariableItems(); compute(); return; }
+      else if (f === "value") {
+        const v = parseFloat(e.target.value);
+        if (item.kind === "flat") item.amount = v; else item.rate = v;
+      }
+      compute();
+    };
+    host.onclick = (e) => {
+      const idx = e.target.getAttribute("data-remove");
+      if (idx === null) return;
+      variableItems.splice(idx, 1);
+      renderVariableItems(); compute();
+    };
+  }
+
+  $("#add-direct").onclick = () => { directItems.push({label:"신규 항목", amount:0}); renderDirectItems(); compute(); };
+  $("#add-variable").onclick = () => { variableItems.push({label:"신규 항목", kind:"flat", amount:0, rate:null}); renderVariableItems(); compute(); };
+
+  // ---------- tabs ----------
+  const tabIds = ["a","b","c","bep"];
+  tabIds.forEach(id => {
+    $("#tabbtn-"+id).onclick = () => {
+      tabIds.forEach(x => {
+        $("#tabbtn-"+x).setAttribute("aria-selected", x===id ? "true":"false");
+        $("#tab-"+x).hidden = x!==id;
+      });
+    };
+  });
+
+  // ---------- metric helpers ----------
+  function metricTile({label, value, unit, status, hero, note, digits}){
+    const displayVal = status === "OK" || status === "ESTIMATED"
+      ? (unit === "%" ? fmtPct(value) : (unit ? fmt(value, digits||0) + " " + unit : fmt(value, digits||0)))
+      : (status === "NOT_APPLICABLE" ? "해당없음" : "미확정");
+    return `<div class="metric ${hero?'hero':''}">
+      <span class="m-pill pill-${status}">${status}</span>
+      <span class="m-label">${label}</span>
+      <span class="m-value ${hero?'':'small'}">${displayVal}</span>
+      ${note ? `<span class="m-note">${note}</span>` : ""}
+    </div>`;
+  }
+  function moduleStatusBadge(status){
+    return `<span class="module-status status-${status}"><span class="dot"></span>${status}</span>`;
+  }
+
+  // ---------- core aggregation (mirrors core/engine, single component, no shared-cost) ----------
+  function readInputs(){
+    return {
+      price: parseFloat($("#price").value) || 0,
+      v: (parseFloat($("#vat").value) || 0) / 100,
+      includesVat: $("#includesVat").checked,
+      fixedCost: parseFloat($("#fixedCost").value) || 0,
+      t: (parseFloat($("#targetCmr").value) || 0) / 100,
+      discountRate: (parseFloat($("#discountRate").value) || 0) / 100,
+      marketPrice: parseFloat($("#marketPrice").value) || 0,
+    };
+  }
+
+  function aggregates(){
+    const directTotal = directItems.reduce((s,it) => s + (Number(it.amount)||0), 0);
+    let fixedAmt = 0, bRate = 0, aRate = 0;
+    variableItems.forEach(it => {
+      if (it.kind === "flat") fixedAmt += Number(it.amount)||0;
+      else if (it.kind === "net_sales") bRate += (Number(it.rate)||0)/100;
+      else if (it.kind === "gross_payment") aRate += (Number(it.rate)||0)/100;
+    });
+    return { directTotal, fixedAmt, bRate, aRate };
+  }
+
+  function computeModeA(inp, agg){
+    const { price, v, includesVat } = inp;
+    const N = includesVat ? price/(1+v) : price;
+    const gPay = includesVat ? price : price*(1+v);
+    const variableTotal = agg.fixedAmt + agg.bRate*N + agg.aRate*gPay;
+    const grossProfit = N - agg.directTotal;
+    const grossProfitRate = N !== 0 ? grossProfit/N : null;
+    const cm = grossProfit - variableTotal;
+    const cmRate = N !== 0 ? cm/N : null;
+    const status = (N>0) ? "OK" : "ERROR";
+    return { N, gPay, variableTotal, grossProfit, grossProfitRate, cm, cmRate, status };
+  }
+
+  function computeModeB(inp, agg){
+    const { v, t, includesVat, discountRate } = inp;
+    const C = agg.directTotal + agg.fixedAmt;
+    const b = agg.bRate, a = agg.aRate;
+    const D = 1 - t - b - a*(1+v);
+    if (D <= 0){
+      return { status: "ERROR", D };
+    }
+    const N = C / D;
+    const G = N * (1+v);
+    const requiredSellingPrice = includesVat ? G : N;
+    const requiredListPrice = discountRate > 0 ? requiredSellingPrice/(1-discountRate) : requiredSellingPrice;
+    const expectedCm = t * N;
+    return { status: "OK", D, N, G, requiredSellingPrice, requiredListPrice, expectedCm };
+  }
+
+  function computeModeC(inp, agg){
+    const { v, t, includesVat, marketPrice } = inp;
+    if (!marketPrice || marketPrice <= 0) return { status: "ERROR", reason: "no_price" };
+    const Nm = includesVat ? marketPrice/(1+v) : marketPrice;
+    const Gm = includesVat ? marketPrice : marketPrice*(1+v);
+    const F = agg.fixedAmt, b = agg.bRate, a = agg.aRate;
+    const adc = Nm*(1 - t - b) - a*Gm - F;
+    const actualDirectCost = agg.directTotal;
+    const gap = adc - actualDirectCost;
+    const expectedCm = Nm - adc - F - b*Nm - (a>0 ? a*Gm : 0);
+    const expectedCmRate = Nm !== 0 ? expectedCm/Nm : null;
+    return { status: "OK", Nm, Gm, adc, actualDirectCost, gap, expectedCm, expectedCmRate };
+  }
+
+  function computeBep(inp, agg, modeA){
+    const { fixedCost } = inp;
+    const cmu = modeA.cm;
+    if (cmu === 0){
+      return { status: "NOT_APPLICABLE", cmu, reason: fixedCost===0 ? "zero_zero" : "zero_margin" };
+    }
+    if (cmu < 0){
+      return { status: "NOT_APPLICABLE", cmu, reason: "negative_margin" };
+    }
+    const q = fixedCost / cmu;
+    return { status: "OK", cmu, q, fixedCost };
+  }
+
+  // ---------- render ----------
+  function renderModeA(inp, agg, r){
+    const moduleStatus = r.status;
+    const maxVal = Math.max(inp.price, r.N, 1);
+    const wf = (label, val, cls) => `
+      <div class="wf-row">
+        <span class="wf-label">${label}</span>
+        <div class="wf-track"><div class="wf-fill ${cls}" style="width:${Math.max(0,Math.min(100, (val/maxVal)*100))}%"></div></div>
+        <span class="wf-value num">${fmt(val)}</span>
+      </div>`;
+    $("#tab-a").innerHTML = `
+      ${moduleStatusBadge(moduleStatus)}
+      <div class="metric-grid">
+        ${metricTile({label:"VAT 제외 순매출 (N)", value:r.N, status:"OK", note:"판매가 기준 환산값"})}
+        ${metricTile({label:"직접원가 합계", value:agg.directTotal, status:"OK"})}
+        ${metricTile({label:"매출총이익 (Gross Profit)", value:r.grossProfit, status:"OK"})}
+        ${metricTile({label:"매출총이익률", value:r.grossProfitRate, unit:"%", status:"OK"})}
+        ${metricTile({label:"변동비 합계", value:r.variableTotal, status:"OK"})}
+        ${metricTile({label:"공헌이익 (Contribution Margin)", value:r.cm, status:"OK", hero:true})}
+        ${metricTile({label:"공헌이익률", value:r.cmRate, unit:"%", status:"OK", hero:true})}
+      </div>
+      <div class="waterfall">
+        <h3>가격 분해 (판매가 → 공헌이익)</h3>
+        ${wf("판매가(VAT제외)", r.N, "price")}
+        ${wf("− 직접원가", agg.directTotal, "direct")}
+        ${wf("− 변동비", r.variableTotal, "variable")}
+        ${wf("= 공헌이익", r.cm, "cm")}
+      </div>
+    `;
+  }
+
+  function renderModeB(inp, r){
+    if (r.status === "ERROR"){
+      $("#tab-b").innerHTML = `
+        ${moduleStatusBadge("ERROR")}
+        <div class="warn-box"><strong>목표 달성 불가.</strong> 현재 비율형 비용 구조(변동비율)와 목표 공헌이익률(${fmtPct(inp.t)})로는
+        분모가 0 이하가 되어 어떤 가격을 매겨도 목표를 달성할 수 없습니다. 목표율을 낮추거나 변동비율(수수료 등)을 재협상하세요.</div>`;
+      return;
+    }
+    $("#tab-b").innerHTML = `
+      ${moduleStatusBadge("OK")}
+      <div class="metric-grid">
+        ${metricTile({label:"목표 순매출 (N)", value:r.N, status:"OK"})}
+        ${metricTile({label:"목표 총지불금액 (G, VAT포함)", value:r.G, status:"OK"})}
+        ${metricTile({label:"목표 판매가", value:r.requiredSellingPrice, status:"OK", hero:true, note: inp.includesVat ? "VAT 포함가 기준" : "VAT 제외가 기준"})}
+        ${metricTile({label:"목표 정가 (할인 반영)", value:r.requiredListPrice, status:"OK", hero:true, note:`할인율 ${fmtPct(inp.discountRate)} 역산`})}
+        ${metricTile({label:"예상 공헌이익", value:r.expectedCm, status:"OK"})}
+      </div>`;
+  }
+
+  function renderModeC(inp, r){
+    if (r.status === "ERROR"){
+      $("#tab-c").innerHTML = `${moduleStatusBadge("INCOMPLETE")}
+        <div class="warn-box info"><strong>목표 시장가격 미입력.</strong> 왼쪽 패널에 목표 시장가격을 입력하면 허용원가를 계산합니다.</div>`;
+      return;
+    }
+    const negative = r.adc < 0;
+    $("#tab-c").innerHTML = `
+      ${moduleStatusBadge("OK")}
+      <div class="metric-grid">
+        ${metricTile({label:"시장 순매출 (N)", value:r.Nm, status:"OK"})}
+        ${metricTile({label:"시장 총지불금액 (G)", value:r.Gm, status:"OK"})}
+        ${metricTile({label:"허용 직접원가 (ADC)", value:r.adc, status:"OK", hero:true, note: negative ? "음수 — 현재 목표율로는 원가를 0까지 낮춰도 미달성" : "이 금액까지 직접원가로 지출 가능"})}
+        ${metricTile({label:"실제 직접원가", value:r.actualDirectCost, status:"OK"})}
+        ${metricTile({label:"원가 여유 (허용 − 실제)", value:r.gap, status:"OK", note: r.gap>=0 ? "여유 있음" : "허용원가 초과 — 목표 미달"})}
+        ${metricTile({label:"예상 공헌이익률", value:r.expectedCmRate, unit:"%", status:"OK"})}
+      </div>
+      ${negative ? `<div class="warn-box"><strong>허용원가가 음수입니다.</strong> 이 시장가격·수수료 구조·목표 공헌이익률로는 직접원가를 0으로 낮춰도 목표를 달성할 수 없습니다. 목표율 재검토, 수수료 재협상, 또는 가격대 자체의 재검토가 필요합니다.</div>` : ""}
+    `;
+  }
+
+  function renderBep(inp, r){
+    if (r.status === "NOT_APPLICABLE"){
+      const msg = r.reason === "zero_zero"
+        ? "고정비와 단위 공헌이익이 모두 0입니다 — 손익분기 판매량 개념이 정의되지 않습니다."
+        : r.reason === "zero_margin"
+        ? "현재 단위 공헌이익이 0이라 어떤 판매량으로도 고정비를 회수할 수 없습니다."
+        : "판매할수록 손실이 커지는 구조입니다(단위 공헌이익이 음수). 손익분기 판매량 개념이 성립하지 않습니다.";
+      $("#tab-bep").innerHTML = `
+        ${moduleStatusBadge("NOT_APPLICABLE")}
+        <div class="metric-grid">
+          ${metricTile({label:"단위당 공헌이익", value:r.cmu, status:"OK"})}
+          ${metricTile({label:"손익분기 판매량", value:null, status:"NOT_APPLICABLE"})}
+        </div>
+        <div class="warn-box">${msg}</div>`;
+      return;
+    }
+    $("#tab-bep").innerHTML = `
+      ${moduleStatusBadge("OK")}
+      <div class="metric-grid">
+        ${metricTile({label:"단위당 공헌이익 (CMu)", value:r.cmu, status:"OK"})}
+        ${metricTile({label:"기간 고정운영비 (FC)", value:r.fixedCost, status:"OK"})}
+        ${metricTile({label:"손익분기 판매량 (Q)", value:r.q, unit:"개", status:"OK", hero:true, digits:2})}
+      </div>`;
+  }
+
+  function compute(){
+    const inp = readInputs();
+    const agg = aggregates();
+    const modeA = computeModeA(inp, agg);
+    const modeB = computeModeB(inp, agg);
+    const modeC = computeModeC(inp, agg);
+    const bep = computeBep(inp, agg, modeA);
+    renderModeA(inp, agg, modeA);
+    renderModeB(inp, modeB);
+    renderModeC(inp, modeC);
+    renderBep(inp, bep);
+  }
+
+  renderDirectItems();
+  renderVariableItems();
+  compute();
+  document.addEventListener("input", (e) => {
+    if (e.target.closest("#input-panel")) compute();
+  });
+})();
+</script>
+</body>
+</html>
