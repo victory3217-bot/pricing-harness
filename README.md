@@ -30,17 +30,19 @@ top-level authority on governance, language policy, or curriculum structure.
 
 The Pricing Harness is a pricing-analysis engine: give it one product's price/cost facts as a
 JSON document (a **Client Input**), and it computes contribution margin, target price, allowable
-cost, and break-even numbers, each tagged with a status so a consumer never has to guess whether
+cost, break-even, and planned-quantity profit numbers, each tagged with a status so a consumer never has to guess whether
 a number is real, missing, or undefined. It ships as a Python Core (the source of truth for every
 calculation) plus a JSON contract (request/result schemas) plus an Excel Simulator that mirrors
 the same formulas for live, interactive use and cross-checks itself against the Python Core.
 
-Five capabilities are implemented today, all with passing tests and Excel parity:
+Six capabilities are implemented today, all with passing tests; every one except Volume Profit
+also has Excel parity:
 
 - **MODE A** — current-price diagnosis
 - **MODE B** — target price
 - **MODE C** — allowable direct cost
 - **BEP** — break-even point
+- **Volume Profit** — operating profit and margin of safety at a planned sales quantity
 - **Scenario Compare** — runs several of the above together and compares them against a baseline
 
 ## Architecture
@@ -54,7 +56,7 @@ Client Input  →  Validation  →  Pricing Engine  →  Analysis Result  →  D
 - **Validation** — every Client Input is checked against that schema before the engine touches it
   ([`core/engine/validation/validate_client_input.py`](core/engine/validation/validate_client_input.py)).
 - **Pricing Engine** (`core/engine/`) — pure calculation logic shared by every client. Turns a
-  Client Input into an Analysis Result. MODE A/B/C, BEP, and Scenario Compare are implemented —
+  Client Input into an Analysis Result. MODE A/B/C, BEP, Volume Profit, and Scenario Compare are implemented —
   see [`core/engine/README.md`](core/engine/README.md) for the engine's internal structure.
 - **Analysis Result** — the *only* computed artifact for a single Client Input, conforming to
   [`core/schemas/analysis_result.schema.json`](core/schemas/analysis_result.schema.json).
@@ -68,7 +70,7 @@ rather than a bare number: a consumer can render "미입력" instead of a number
 *why* it's missing, and without ever substituting `0` for an unknown cost. See
 [Interpreting results: status values](#interpreting-results-status-values) below.
 
-## The five capabilities
+## The six capabilities
 
 Each has its own `SPEC.md` (developer spec) / `METHOD.md` (consulting methodology) /
 `CASE.md` (worked example) under `docs/features/<feature>/` — these summaries are entry points,
@@ -86,6 +88,11 @@ not the full picture.
 - **BEP — break-even point** ([docs/features/bep/](docs/features/bep/SPEC.md))
   At the current price and contribution margin structure, how many units must you sell to
   recover the period's fixed operating cost?
+- **Volume Profit — operating profit at a planned quantity** ([docs/features/volume_profit/](docs/features/volume_profit/SPEC.md))
+  If you sell a *planned quantity* in the month, how much operating profit is left after fixed
+  operating cost, and how far above or below break-even is that plan? It is the only capability
+  that takes a quantity as input (`sales_plan`), and it needs one — without a `sales_plan` its
+  result is `NOT_RUN`. Single-component only; Python Core only for now.
 - **Scenario Compare** ([docs/features/scenario_compare/](docs/features/scenario_compare/SPEC.md))
   An **orchestration layer, not a sixth calculation engine**: it runs MODE A/B/C and BEP over
   several named scenarios derived from one shared base input, then reports each scenario's
@@ -155,7 +162,7 @@ external, non-Python dependency used only for headless formula recalculation); s
 There is no CLI yet — every capability is a plain Python function you import. Run these from the
 repository root (so `core/` resolves as a package).
 
-**A. Single analysis (MODE A + B + C + BEP together)**
+**A. Single analysis (MODE A + B + C + BEP + Volume Profit together)**
 
 ```python
 import json
@@ -173,11 +180,13 @@ print(result["mode_a"]["per_component"]["main"]["contribution_margin"])  # {"val
 ```
 
 `build_analysis_result()` ([`core/engine/result_builder.py`](core/engine/result_builder.py)) runs
-MODE A, MODE B, MODE C, and BEP over the same Client Input and assembles one Analysis Result
+MODE A, MODE B, MODE C, BEP, and Volume Profit over the same Client Input and assembles one Analysis Result
 (conforming to `core/schemas/analysis_result.schema.json`). To call a single mode directly, import
 `run_mode_a`/`run_mode_b`/`run_mode_c` from `core.engine.modes.mode_a`/`mode_b`/`mode_c`, or
-`run_bep` from `core.engine.modes.bep` — each takes just `client_input` and returns that mode's
-own result block.
+`run_bep` from `core.engine.modes.bep`, or `run_volume_profit` from `core.engine.modes.volume_profit`
+— each takes just `client_input` and returns that mode's own result block. Volume Profit only runs
+when the Client Input has a `sales_plan` — see
+[`core/schemas/examples/valid/08_volume_profit.json`](core/schemas/examples/valid/08_volume_profit.json).
 
 **B. Scenario Compare**
 
@@ -299,6 +308,9 @@ against whatever commit you have checked out):
 - A real **shared-cost allocation engine** is not implemented anywhere yet; Excel only simulates
   the allocation-status states (`none`/`unresolved`/`invalid`) as test controls, and the Python
   Core does not yet allocate a shared cost item across components.
+- **Volume Profit is Python Core only**: the Excel Simulator and Scenario Compare do not cover it
+  yet. It is single-component and supports only the `per_month` period, and any `per_order` cost
+  makes its quantity-dependent metrics `ESTIMATED` (one unit per order is assumed).
 - `build_workbook.py` has an import-time side effect (importing the module regenerates and saves
   the workbook) — always run it as a script (`python tools/excel_simulator/build_workbook.py`),
   never `import build_workbook` from another script or a REPL.
@@ -324,7 +336,7 @@ filename or `ENGINE_VERSION`.
 
 ```
 core/                  Formulas, schemas, and calculation logic shared by every client — no company names
-core/engine/           The Pricing Engine itself (MODE A/B/C, BEP, Scenario Compare) — see core/engine/README.md
+core/engine/           The Pricing Engine itself (MODE A/B/C, BEP, Volume Profit, Scenario Compare) — see core/engine/README.md
 core/schemas/          JSON Schema contracts (Client Input, Analysis Result, Scenario Compare) + shipped examples
 docs/features/         SPEC/METHOD/CASE trio per capability (mode_a_current_price/, mode_b_target_price/, ...)
 tests/                 pytest unit tests, one file per capability

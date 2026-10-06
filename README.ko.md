@@ -29,18 +29,20 @@
 ## What it is (개요)
 
 Pricing Harness는 가격 분석 엔진입니다: 상품 하나의 가격/원가 정보를 JSON 문서(**Client Input**)로
-주면, 공헌이익(contribution margin), 목표 가격, 허용 원가, 손익분기 수치를 계산하며, 각 값에는
+주면, 공헌이익(contribution margin), 목표 가격, 허용 원가, 손익분기, 계획 판매량 기준 이익 수치를 계산하며, 각 값에는
 status가 함께 태그되어 있어 사용 측에서 그 값이 실제 값인지, 누락된 값인지, 정의되지 않은 값인지
 추측할 필요가 없습니다. Python Core(모든 계산의 source of truth) + JSON contract(request/result
 schema) + 동일한 공식을 그대로 미러링해 실시간·인터랙티브로 확인할 수 있고 Python Core와 스스로
 대조 검증하는 Excel Simulator로 구성되어 있습니다.
 
-현재 다음 5개 기능이 구현되어 있으며, 모두 테스트와 Excel parity 검증을 통과합니다:
+현재 다음 6개 기능이 구현되어 있으며, 모두 테스트를 통과합니다. Volume Profit을 제외한 모든 기능은
+Excel parity 검증도 통과합니다:
 
 - **MODE A** — 현재가 기준 진단(current-price diagnosis)
 - **MODE B** — 목표 가격(target price)
 - **MODE C** — 허용 직접원가(allowable direct cost)
 - **BEP** — 손익분기점(break-even point)
+- **Volume Profit** — 계획 판매량 기준 영업이익과 안전한계(margin of safety)
 - **Scenario Compare** — 위 기능들을 여러 시나리오에 대해 함께 실행하고 baseline 대비 비교
 
 ## Architecture (아키텍처)
@@ -54,7 +56,7 @@ Client Input  →  Validation  →  Pricing Engine  →  Analysis Result  →  D
 - **Validation** — 모든 Client Input은 engine이 다루기 전에 이 schema로 검증됩니다
   ([`core/engine/validation/validate_client_input.py`](core/engine/validation/validate_client_input.py)).
 - **Pricing Engine** (`core/engine/`) — 모든 클라이언트가 공유하는 순수 계산 로직입니다. Client
-  Input을 Analysis Result로 변환합니다. MODE A/B/C, BEP, Scenario Compare가 구현되어 있습니다 —
+  Input을 Analysis Result로 변환합니다. MODE A/B/C, BEP, Volume Profit, Scenario Compare가 구현되어 있습니다 —
   엔진 내부 구조는 [`core/engine/README.md`](core/engine/README.md)를 참고하십시오.
 - **Analysis Result** — 하나의 Client Input에 대한 *유일한* 계산 산출물로,
   [`core/schemas/analysis_result.schema.json`](core/schemas/analysis_result.schema.json)을 따릅니다.
@@ -67,7 +69,7 @@ Analysis Result의 모든 계산값이 단순 숫자가 아니라 `{value, statu
 `0`으로 대체하는 일도 없습니다. 아래
 [결과 해석: status 값](#결과-해석-status-값)을 참고하십시오.
 
-## The five capabilities (다섯 가지 기능)
+## The six capabilities (여섯 가지 기능)
 
 각 기능은 `docs/features/<feature>/` 아래에 자체 `SPEC.md`(개발자용 스펙) /
 `METHOD.md`(컨설팅 방법론) / `CASE.md`(예제)를 가지고 있습니다 — 아래 요약은 진입점일 뿐 전체
@@ -83,6 +85,10 @@ Analysis Result의 모든 계산값이 단순 숫자가 아니라 `{value, statu
   계산합니다.
 - **BEP — break-even point** ([docs/features/bep/](docs/features/bep/SPEC.md))
   현재 가격과 공헌이익 구조에서, 기간 고정운영비를 회수하려면 몇 단위를 팔아야 하는지 계산합니다.
+- **Volume Profit — operating profit at a planned quantity** ([docs/features/volume_profit/](docs/features/volume_profit/SPEC.md))
+  한 달에 *계획 판매량*만큼 팔면 고정운영비를 제하고 영업이익이 얼마 남는지, 그 계획이 손익분기보다
+  얼마나 위(또는 아래)인지 계산합니다. 판매량을 입력(`sales_plan`)으로 받는 유일한 기능이며,
+  `sales_plan`이 없으면 결과는 `NOT_RUN`입니다. 단일 component만 지원하며, 현재는 Python Core 전용입니다.
 - **Scenario Compare** ([docs/features/scenario_compare/](docs/features/scenario_compare/SPEC.md))
   **orchestration layer이며, 여섯 번째 계산 엔진이 아닙니다**: 하나의 공유 base input에서 파생된
   여러 named scenario에 대해 MODE A/B/C와 BEP를 실행하고, 각 scenario의 절대값 결과와 선택된
@@ -151,7 +157,7 @@ workbook을 재생성할 수 있습니다(`openpyxl`이 `.xlsx` 파일을 씁니
 아직 CLI는 없습니다 — 모든 기능은 직접 import해서 쓰는 순수 Python 함수입니다. 아래 예제는
 저장소 루트에서 실행하십시오(그래야 `core/`가 패키지로 resolve됩니다).
 
-**A. 단일 분석 (MODE A + B + C + BEP를 함께)**
+**A. 단일 분석 (MODE A + B + C + BEP + Volume Profit을 함께)**
 
 ```python
 import json
@@ -169,11 +175,13 @@ print(result["mode_a"]["per_component"]["main"]["contribution_margin"])  # {"val
 ```
 
 `build_analysis_result()` ([`core/engine/result_builder.py`](core/engine/result_builder.py))는
-같은 Client Input에 대해 MODE A, MODE B, MODE C, BEP를 실행하고 하나의 Analysis Result로
+같은 Client Input에 대해 MODE A, MODE B, MODE C, BEP, Volume Profit을 실행하고 하나의 Analysis Result로
 조립합니다(`core/schemas/analysis_result.schema.json`을 따름). 단일 mode 하나만 직접 호출하려면
 `core.engine.modes.mode_a`/`mode_b`/`mode_c`에서 `run_mode_a`/`run_mode_b`/`run_mode_c`를,
-`core.engine.modes.bep`에서 `run_bep`를 import하십시오 — 각각 `client_input`만 받아서 해당
-mode 자체의 결과 블록을 반환합니다.
+`core.engine.modes.bep`에서 `run_bep`를, `core.engine.modes.volume_profit`에서
+`run_volume_profit`을 import하십시오 — 각각 `client_input`만 받아서 해당 mode 자체의 결과 블록을
+반환합니다. Volume Profit은 Client Input에 `sales_plan`이 있을 때만 실행됩니다 —
+[`core/schemas/examples/valid/08_volume_profit.json`](core/schemas/examples/valid/08_volume_profit.json)을 참고하십시오.
 
 **B. Scenario Compare**
 
@@ -293,6 +301,9 @@ python core/schemas/validate_examples.py  # 제공된 모든 example의 schema v
 - 실제 **shared-cost allocation engine**은 아직 어디에도 구현되어 있지 않습니다; Excel은 테스트
   전용 컨트롤로 allocation-status 상태(`none`/`unresolved`/`invalid`)만 시뮬레이션하며, Python
   Core도 아직 여러 component에 걸쳐 공유 cost item을 배분하지 않습니다.
+- **Volume Profit은 Python Core 전용입니다**: Excel Simulator와 Scenario Compare는 아직 이를
+  다루지 않습니다. 단일 component만 지원하고 `per_month` 기간만 지원하며, `per_order` 비용이 있으면
+  판매량에 의존하는 지표는 `ESTIMATED`가 됩니다(주문당 1개 판매를 가정).
 - `build_workbook.py`는 import-time side effect를 가지고 있습니다(모듈을 import하는 것만으로
   workbook이 재생성·저장됩니다) — 항상 스크립트로 실행하십시오
   (`python tools/excel_simulator/build_workbook.py`), 다른 스크립트나 REPL에서
@@ -319,7 +330,7 @@ Excel 전용 build는 각각 다른 축을 바꾸지 않고도 일어날 수 있
 
 ```
 core/                  모든 클라이언트가 공유하는 공식, schema, 계산 로직 — 회사명 없음
-core/engine/           Pricing Engine 본체(MODE A/B/C, BEP, Scenario Compare) — core/engine/README.md 참고
+core/engine/           Pricing Engine 본체(MODE A/B/C, BEP, Volume Profit, Scenario Compare) — core/engine/README.md 참고
 core/schemas/          JSON Schema contract(Client Input, Analysis Result, Scenario Compare) + 제공되는 example
 docs/features/         기능별 SPEC/METHOD/CASE 3종 세트(mode_a_current_price/, mode_b_target_price/, ...)
 tests/                 기능별 pytest 단위 테스트
