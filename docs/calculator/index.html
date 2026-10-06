@@ -283,9 +283,14 @@
       <div class="panel-section">
         <h2>고정운영비 &amp; 목표</h2>
         <div class="field">
-          <label for="fixedCost">기간당 고정운영비 합계 (KRW)</label>
+          <label for="fixedCost">월 고정운영비 합계 (KRW)</label>
           <input type="number" id="fixedCost" value="2000000" min="0" step="10000">
-          <span class="hint">BEP 계산에 사용 — 임대료·인건비·판관비 등 기간 합계</span>
+          <span class="hint">BEP·판매량 손익에 사용 — 임대료·인건비·판관비 등 월 합계</span>
+        </div>
+        <div class="field">
+          <label for="plannedQty">월 계획 판매량 (개)</label>
+          <input type="number" id="plannedQty" value="200" min="0" step="1">
+          <span class="hint">판매량 손익(Volume Profit)에 사용 — 비우면 미입력으로 처리, 0은 &ldquo;판매 없음&rdquo;</span>
         </div>
         <div class="row2">
           <div class="field">
@@ -314,17 +319,20 @@
         <button class="tab" role="tab" id="tabbtn-b" aria-selected="false" data-tab="b">MODE B<span class="q">목표 가격</span></button>
         <button class="tab" role="tab" id="tabbtn-c" aria-selected="false" data-tab="c">MODE C<span class="q">허용 원가</span></button>
         <button class="tab" role="tab" id="tabbtn-bep" aria-selected="false" data-tab="bep">BEP<span class="q">손익분기</span></button>
+        <button class="tab" role="tab" id="tabbtn-vp" aria-selected="false" data-tab="vp">판매량 손익<span class="q">Volume Profit</span></button>
       </div>
 
       <div class="tabpanel" id="tab-a" role="tabpanel"></div>
       <div class="tabpanel" id="tab-b" role="tabpanel" hidden></div>
       <div class="tabpanel" id="tab-c" role="tabpanel" hidden></div>
       <div class="tabpanel" id="tab-bep" role="tabpanel" hidden></div>
+      <div class="tabpanel" id="tab-vp" role="tabpanel" hidden></div>
     </div>
   </div>
 
   <footer class="note">
     단일 컴포넌트 상품을 가정한 단순화 버전이며, shared-cost 배분·다중 컴포넌트·통화 환산 등 <code>core/engine</code>의 일부 규칙은 반영하지 않았습니다.
+    판매량 손익은 정액(주문당) 비용을 주문당 1개 판매로 가정하므로 해당 지표를 ESTIMATED로 표시합니다.
     실제 컨설팅 산출물은 <code>core/engine</code>의 Python 계산 결과를 기준(source of truth)으로 삼아야 합니다.
   </footer>
 </div>
@@ -347,7 +355,7 @@
   ];
   let variableItems = [
     { label: "PG수수료", kind: "gross_payment", amount: null, rate: 2.5 },
-    { label: "배송비", kind: "flat", amount: 3000, rate: null },
+    { label: "배송비", kind: "per_order", amount: 3000, rate: null },
   ];
 
   function renderDirectItems(){
@@ -391,11 +399,12 @@
     variableItems.forEach((item, i) => {
       const row = document.createElement("div");
       row.className = "item-row";
-      const isRate = item.kind !== "flat";
+      const isRate = item.kind === "net_sales" || item.kind === "gross_payment";
       row.innerHTML = `
         <input type="text" data-idx="${i}" data-f="label" value="${item.label}" placeholder="항목명">
         <select data-idx="${i}" data-f="kind">
-          <option value="flat" ${item.kind==='flat'?'selected':''}>정액</option>
+          <option value="flat" ${item.kind==='flat'?'selected':''}>정액 (개당)</option>
+          <option value="per_order" ${item.kind==='per_order'?'selected':''}>정액 (주문당)</option>
           <option value="net_sales" ${item.kind==='net_sales'?'selected':''}>순매출 대비 %</option>
           <option value="gross_payment" ${item.kind==='gross_payment'?'selected':''}>지불액 대비 %</option>
         </select>
@@ -413,7 +422,7 @@
       else if (f === "kind") { item.kind = e.target.value; renderVariableItems(); compute(); return; }
       else if (f === "value") {
         const v = parseFloat(e.target.value);
-        if (item.kind === "flat") item.amount = v; else item.rate = v;
+        if (item.kind === "flat" || item.kind === "per_order") item.amount = v; else item.rate = v;
       }
       compute();
     };
@@ -429,7 +438,7 @@
   $("#add-variable").onclick = () => { variableItems.push({label:"신규 항목", kind:"flat", amount:0, rate:null}); renderVariableItems(); compute(); };
 
   // ---------- tabs ----------
-  const tabIds = ["a","b","c","bep"];
+  const tabIds = ["a","b","c","bep","vp"];
   tabIds.forEach(id => {
     $("#tabbtn-"+id).onclick = () => {
       tabIds.forEach(x => {
@@ -465,18 +474,20 @@
       t: (parseFloat($("#targetCmr").value) || 0) / 100,
       discountRate: (parseFloat($("#discountRate").value) || 0) / 100,
       marketPrice: parseFloat($("#marketPrice").value) || 0,
+      plannedQty: $("#plannedQty").value.trim() === "" ? null : parseFloat($("#plannedQty").value),
     };
   }
 
   function aggregates(){
     const directTotal = directItems.reduce((s,it) => s + (Number(it.amount)||0), 0);
     let fixedAmt = 0, bRate = 0, aRate = 0;
+    const hasPerOrder = variableItems.some(it => it.kind === "per_order" && it.amount !== null && it.amount !== undefined && !Number.isNaN(Number(it.amount)));
     variableItems.forEach(it => {
-      if (it.kind === "flat") fixedAmt += Number(it.amount)||0;
+      if (it.kind === "flat" || it.kind === "per_order") fixedAmt += Number(it.amount)||0;
       else if (it.kind === "net_sales") bRate += (Number(it.rate)||0)/100;
       else if (it.kind === "gross_payment") aRate += (Number(it.rate)||0)/100;
     });
-    return { directTotal, fixedAmt, bRate, aRate };
+    return { directTotal, fixedAmt, bRate, aRate, hasPerOrder };
   }
 
   function computeModeA(inp, agg){
@@ -533,6 +544,22 @@
     }
     const q = fixedCost / cmu;
     return { status: "OK", cmu, q, fixedCost };
+  }
+
+  function computeVolume(inp, agg, modeA){
+    const q = inp.plannedQty;
+    if (q === null) return { status: "UNKNOWN" };
+    if (Number.isNaN(q) || q < 0) return { status: "ERROR", reason: "negative" };
+    if (modeA.status !== "OK") return { status: "ERROR", reason: "price" };
+    const N = modeA.N, cmu = modeA.cm, fc = inp.fixedCost;
+    const totalSales = N * q, totalCm = cmu * q, op = totalCm - fc;
+    const opRate = totalSales === 0 ? null : op / totalSales;
+    let be = null, beNa = null;
+    if (cmu > 0) be = fc / cmu;
+    else beNa = cmu < 0 ? "negative" : (fc === 0 ? "zero_zero" : "zero");
+    const mosQty = be === null ? null : q - be;
+    const mosRate = (be === null || q === 0) ? null : (q - be) / q;
+    return { status: "OK", q, N, cmu, fc, est: agg.hasPerOrder, totalSales, totalCm, op, opRate, be, beNa, mosQty, mosRate };
   }
 
   // ---------- render ----------
@@ -631,6 +658,53 @@
       </div>`;
   }
 
+  function renderVolume(inp, r){
+    const host = $("#tab-vp");
+    if (r.status === "UNKNOWN"){
+      host.innerHTML = `${moduleStatusBadge("INCOMPLETE")}
+        <div class="warn-box info"><strong>월 계획 판매량 미입력.</strong> 왼쪽 패널에 월 계획 판매량을 입력하면 영업이익과 안전한계를 계산합니다 (기간을 임의로 가정하지 않으므로 값이 있어야 합니다).</div>`;
+      return;
+    }
+    if (r.status === "ERROR"){
+      const msg = r.reason === "negative"
+        ? "월 계획 판매량이 음수이거나 숫자가 아닙니다. 0 이상의 값을 입력하세요."
+        : "판매가 또는 VAT 설정이 유효하지 않아 순매출을 계산할 수 없습니다. 판매가를 확인하세요.";
+      host.innerHTML = `${moduleStatusBadge("ERROR")}<div class="warn-box"><strong>계산할 수 없습니다.</strong> ${msg}</div>`;
+      return;
+    }
+    const cs = r.est ? "ESTIMATED" : "OK";
+    const beNaStatus = r.be === null ? "NOT_APPLICABLE" : cs;
+    const maxQ = Math.max(r.q, r.be || 0, 1);
+    const bar = (label, val, cls) => `
+      <div class="wf-row">
+        <span class="wf-label">${label}</span>
+        <div class="wf-track"><div class="wf-fill ${cls}" style="width:${Math.max(0, Math.min(100, (val/maxQ)*100))}%"></div></div>
+        <span class="wf-value num">${fmt(val, 1)}</span>
+      </div>`;
+    const beMsg = r.beNa === "negative"
+      ? "판매할수록 손실이 커지는 구조입니다(단위 공헌이익 음수). 손익분기 판매량 개념이 성립하지 않아 안전한계도 계산하지 않습니다."
+      : r.beNa === "zero_zero"
+      ? "고정비와 단위 공헌이익이 모두 0입니다 — 손익분기 판매량이 정의되지 않습니다."
+      : "단위 공헌이익이 0이라 어떤 판매량으로도 고정비를 회수할 수 없습니다.";
+    host.innerHTML = `
+      ${moduleStatusBadge("OK")}
+      <div class="metric-grid">
+        ${metricTile({label:"월 계획 판매량", value:r.q, unit:"개", status:"OK"})}
+        ${metricTile({label:"총 순매출 (VAT 제외)", value:r.totalSales, status:"OK"})}
+        ${metricTile({label:"총 공헌이익", value:r.totalCm, status:cs})}
+        ${metricTile({label:"영업이익 (공헌이익 − 고정운영비)", value:r.op, status:cs, hero:true, note: r.op < 0 ? "손실 — 고정운영비를 회수하지 못함" : "고정운영비 회수 후 남는 금액"})}
+        ${metricTile({label:"영업이익률", value:r.opRate, unit:"%", status: r.opRate === null ? "NOT_APPLICABLE" : cs})}
+        ${metricTile({label:"손익분기 판매량", value:r.be, unit:"개", status:beNaStatus, digits:2})}
+        ${metricTile({label:"안전한계 수량 (계획 − 손익분기)", value:r.mosQty, unit:"개", status:beNaStatus, hero:true, digits:2, note: r.mosQty !== null && r.mosQty < 0 ? "음수 — 계획이 손익분기에 못 미침" : ""})}
+        ${metricTile({label:"안전한계율", value:r.mosRate, unit:"%", status: r.mosRate === null ? "NOT_APPLICABLE" : cs, hero:true})}
+      </div>
+      ${r.be !== null ? `<div class="waterfall"><h3>계획 판매량 vs 손익분기 판매량</h3>${bar("계획 판매량", r.q, "cm")}${bar("손익분기 판매량", r.be, "direct")}</div>` : ""}
+      ${r.be === null ? `<div class="warn-box info"><strong>손익분기 판매량 없음.</strong> ${beMsg}</div>` : ""}
+      ${r.mosQty !== null && r.mosQty < 0 ? `<div class="warn-box"><strong>손익분기 미달.</strong> 계획 판매량이 손익분기 판매량에 못 미칩니다 — 고정운영비를 회수하지 못합니다.</div>` : ""}
+      ${r.est ? `<div class="warn-box info"><strong>추정값 포함.</strong> 정액(주문당) 비용을 주문당 1개 판매로 가정했습니다. 주문당 구매 수량이 1개보다 크면 비용이 과대 계상되고 영업이익이 과소 계상됩니다.</div>` : ""}
+    `;
+  }
+
   function compute(){
     const inp = readInputs();
     const agg = aggregates();
@@ -638,10 +712,12 @@
     const modeB = computeModeB(inp, agg);
     const modeC = computeModeC(inp, agg);
     const bep = computeBep(inp, agg, modeA);
+    const volume = computeVolume(inp, agg, modeA);
     renderModeA(inp, agg, modeA);
     renderModeB(inp, modeB);
     renderModeC(inp, modeC);
     renderBep(inp, bep);
+    renderVolume(inp, volume);
   }
 
   renderDirectItems();
