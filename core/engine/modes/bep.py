@@ -24,9 +24,9 @@ this module and mode_a.py call the SAME shared primitives in core/engine/economi
 it), and mode_a.py itself was migrated onto economics.py rather than keeping its own copy, so
 there is exactly one implementation of direct/variable cost aggregation and VAT-basis price
 conversion in the codebase, not two. This satisfies "no new price-normalization semantics"
-(SPEC.md section 5) with zero formula duplication; only fixed_operating_cost aggregation (a
-category MODE A never reads, with BEP-specific shared-cost semantics — see
-_sum_fixed_operating_cost below) is new, BEP-local code.
+(SPEC.md section 5) with zero formula duplication. fixed_operating_cost aggregation (a category
+MODE A never reads, with its own shared-cost semantics) is economics.sum_fixed_operating_cost,
+shared with Volume Profit (docs/features/volume_profit/SPEC.md section 12).
 
 Multi-component hard gate (SPEC.md section 11, dependency_rules.md section 7): more than one
 product.price_components entry makes run_bep() return status=ERROR, per_component={}, and a
@@ -53,108 +53,20 @@ from core.engine.common import (
     OK,
     UNKNOWN,
     aggregate_module_status,
-    convert_to_reporting,
     metric,
     resolve_price_basis,
     warn,
 )
-from core.engine.economics import DIRECT, VARIABLE, price_converted, sum_cost_category
+from core.engine.economics import (
+    DIRECT,
+    FIXED_COST_MESSAGES,
+    VARIABLE,
+    price_converted,
+    sum_cost_category,
+    sum_fixed_operating_cost,
+)
 
 NOT_APPLICABLE = "NOT_APPLICABLE"
-FIXED = "fixed_operating_cost"
-
-
-def _sum_fixed_operating_cost(client_input, component_id):
-    """(value, status, code, dependency_paths, analysis_period_basis).
-
-    Mirrors economics.sum_cost_category's no-item/null/explicit-zero + shared-cost classification
-    pattern (see that function's docstring), with BEP-specific additions — this function is
-    intentionally NOT folded into economics.py (see this module's docstring and
-    docs/features/bep/SPEC.md section 12):
-    - amount < 0 -> ERROR, INVALID_NEGATIVE_COST (SPEC.md section 4 -- new rule, no mode before
-      BEP ever needed a sign check on this field).
-    - shared + allocation_rule=blended_only -> UNKNOWN, FIXED_COST_BLENDED_ONLY_NOT_ALLOCATED
-      (SPEC.md section 12 -- deviates from every other mode's "excluded, contributes 0, no
-      warning" treatment, because fixed_operating_cost IS what BEP sums).
-    - every contributing item's own `basis` is tracked; more than one distinct basis among
-      contributing items -> ERROR, INCONSISTENT_FIXED_COST_BASIS (SPEC.md section 4/12).
-    """
-    fx = client_input["fx"]
-    total = 0.0
-    unknown_deps = []
-    blended_only_deps = []
-    error_deps = []
-    negative_deps = []
-    currency_error_deps = []
-    any_item = False
-    bases = set()
-
-    for item in client_input["costs"]["items"]:
-        if item["cost_category"] != FIXED:
-            continue
-        applies = item["applies_to_component"]
-
-        if applies == component_id:
-            pass
-        elif applies == "shared":
-            rule = item.get("allocation_rule")
-            any_item = True
-            bases.add(item["basis"])
-            if rule == "direct":
-                error_deps.append(f"costs.items[{item['item_id']}].allocation_rule")
-                continue
-            if rule == "blended_only":
-                blended_only_deps.append(f"blended.allocation[{item['item_id']}]")
-                continue
-            if rule in ("by_component_revenue", "fixed_share"):
-                unknown_deps.append(f"blended.allocation[{item['item_id']}]")
-                continue
-            unknown_deps.append(f"costs.items[{item['item_id']}].allocation_rule")
-            continue
-        else:
-            continue
-
-        any_item = True
-        bases.add(item["basis"])
-        amount = item.get("amount")
-        if amount is None:
-            unknown_deps.append(f"costs.items[{item['item_id']}].amount")
-            continue
-        if amount < 0:
-            negative_deps.append(f"costs.items[{item['item_id']}].amount")
-            continue
-        value, status, dep = convert_to_reporting(amount, item.get("currency"), fx)
-        if status == ERROR:
-            # Unsupported currency (SPEC.md section 13/15) -- ERROR, distinct from the plain
-            # "missing fx rate" UNKNOWN convert_to_reporting can also return.
-            currency_error_deps.append(dep or f"costs.items[{item['item_id']}].amount")
-            continue
-        if status != OK:
-            unknown_deps.append(dep or f"costs.items[{item['item_id']}].amount")
-            continue
-        total += value
-
-    if not any_item:
-        return 0.0, OK, None, [], None
-
-    if negative_deps:
-        return None, ERROR, "INVALID_NEGATIVE_COST", negative_deps, None
-    if error_deps:
-        return None, ERROR, "INVALID_ALLOCATION_CONFIGURATION", error_deps, None
-    if currency_error_deps:
-        return None, ERROR, "UNSUPPORTED_CURRENCY", currency_error_deps, None
-    if len(bases) > 1:
-        return None, ERROR, "INCONSISTENT_FIXED_COST_BASIS", [], None
-    if blended_only_deps:
-        return None, UNKNOWN, "FIXED_COST_BLENDED_ONLY_NOT_ALLOCATED", blended_only_deps, None
-    if unknown_deps:
-        code = "UNSUPPORTED_SHARED_COST_ALLOCATION" if any(
-            p.startswith("blended.allocation[") for p in unknown_deps
-        ) else "MISSING_DEPENDENCY"
-        return None, UNKNOWN, code, unknown_deps, None
-
-    basis = next(iter(bases)) if bases else None
-    return total, OK, None, [], basis
 
 
 def compute_component(client_input, component):
@@ -221,21 +133,12 @@ def compute_component(client_input, component):
 
     # --- fixed_operating_cost: independent aggregation, never reads product_service_direct_cost
     #     or any prior mode_a/mode_b/mode_c output ---
-    fc_value, fc_status, fc_code, fc_deps, analysis_period_basis = _sum_fixed_operating_cost(client_input, cid)
+    fc_value, fc_status, fc_code, fc_deps, analysis_period_basis = sum_fixed_operating_cost(client_input, cid)
     metrics["fixed_operating_cost"] = metric(fc_value, fc_status, unit)
     if fc_status != OK:
-        fc_messages = {
-            "INVALID_NEGATIVE_COST": "fixed_operating_cost 항목의 금액이 음수입니다 — 유효한 비용으로 취급하지 않습니다.",
-            "INVALID_ALLOCATION_CONFIGURATION": "shared 비용에 allocation_rule=direct가 설정되어 있어 fixed_operating_cost를 계산할 수 없습니다.",
-            "UNSUPPORTED_CURRENCY": "fixed_operating_cost 항목의 통화를 reporting currency로 환산할 수 없습니다 (미지원 통화).",
-            "INCONSISTENT_FIXED_COST_BASIS": "이 컴포넌트에 귀속되는 fixed_operating_cost 항목들의 basis(분석기간)가 서로 달라 합산할 수 없습니다.",
-            "FIXED_COST_BLENDED_ONLY_NOT_ALLOCATED": "fixed_operating_cost 항목이 blended_only로 설정되어 있어(컴포넌트별 배부 대상이 아님) 아직 배부되지 않았습니다 — 0으로 취급하지 않습니다.",
-            "UNSUPPORTED_SHARED_COST_ALLOCATION": "fixed_operating_cost 중 shared 비용이 있으나 배부(allocation) 결과가 없어 계산할 수 없습니다 (0으로 취급하지 않음).",
-            "MISSING_DEPENDENCY": "fixed_operating_cost 항목이 미입력되어 계산할 수 없습니다.",
-        }
         warnings.append(warn(
             fc_code, "blocking", f"bep.per_component.{cid}.fixed_operating_cost", fc_deps,
-            fc_messages[fc_code],
+            FIXED_COST_MESSAGES[fc_code],
         ))
 
     # --- break_even_quantity_exact = FC / CMu ---
