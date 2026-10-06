@@ -316,7 +316,7 @@ Pricing Harness에는 네 개의 독립적인 버전 축이 있습니다 — 각
 
 | 축 | 현재 값 | Source of truth | 추적하는 대상 |
 |---|---|---|---|
-| **Product release** | `0.1.0-beta.3` | root [`VERSION`](VERSION) 파일, git tag `v0.1.0-beta.3` | 어느 시점의 Pricing Harness 전체(Python Core + schema + Excel Simulator + 문서). 이 sanitized 공개 저장소의 release identity이며 — 현재 성숙도는 **Limited/Beta**입니다. |
+| **Product release** | `0.1.0-beta.4` | root [`VERSION`](VERSION) 파일, git tag `v0.1.0-beta.4` | 어느 시점의 Pricing Harness 전체(Python Core + schema + Excel Simulator + 문서). 이 sanitized 공개 저장소의 release identity이며 — 현재 성숙도는 **Limited/Beta**입니다. |
 | Python engine marker | `0.5.0` | [`core/engine/result_builder.py`](core/engine/result_builder.py)의 `ENGINE_VERSION` | 계산 엔진 자체의 내부 iteration으로, 생성되는 모든 Analysis Result의 `source.engine_version` 필드에 기록됩니다. |
 | Excel Simulator artifact | `v0.5` | workbook 파일명 자체, `Pricing_Harness_Excel_Simulator_v0.5.xlsx` | Python engine이나 product release와 무관한, 이 특정 Excel build 자체의 iteration. |
 | Schema / data contract | `1.2` | 모든 Client Input / Analysis Result / Scenario Compare 문서 안의 `schema_version` 필드 | 시스템을 흐르는 JSON 문서의 *모양(shape)* — 소프트웨어 릴리스가 아니라 데이터 호환성 버전입니다. `1.2`는 선택 필드 `sales_plan`(Client Input)과 `volume_profit`(Analysis Result)를 추가했으며, 기존 `1.1` 문서는 모두 그대로 유효합니다. |
