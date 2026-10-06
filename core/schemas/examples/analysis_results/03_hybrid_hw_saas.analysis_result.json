@@ -1,11 +1,11 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "source": {
     "client_id": "sample_co_gamma",
     "case_id": "sample_case_gamma_001",
     "client_input_ref": "core\\schemas\\examples\\valid\\03_hybrid_hw_saas.json",
-    "engine_version": "0.4.0",
-    "calculated_at": "2026-09-11T22:40:55+09:00"
+    "engine_version": "0.5.0",
+    "calculated_at": "2026-10-07T00:20:01+09:00"
   },
   "currency": {
     "reporting": "USD"
@@ -576,6 +576,11 @@
         "message": "BEP v0.1은 단일 컴포넌트 상품만 지원합니다 — 이 Client Input은 컴포넌트가 2개 이상이라 계산하지 않습니다 (shared fixed cost 이중계상 방지)."
       }
     ]
+  },
+  "volume_profit": {
+    "status": "NOT_RUN",
+    "per_component": {},
+    "warnings": []
   },
   "meta": {
     "missing_input_paths": [

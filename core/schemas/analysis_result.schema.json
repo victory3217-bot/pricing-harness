@@ -51,6 +51,11 @@
       "description": "BEP is implemented (core/engine/modes/bep.py) and always returns status/per_component/warnings, mirroring mode_b/mode_c's pattern. Single-component only in v0.1: a Client Input with more than one product.price_components entry gets status ERROR, per_component {}, and a single MULTI_COMPONENT_BEP_NOT_SUPPORTED warning — see docs/features/bep/SPEC.md section 11."
     },
 
+    "volume_profit": {
+      "$ref": "#/definitions/volume_profit_block",
+      "description": "Volume Profit (core/engine/modes/volume_profit.py) — operating profit and margin of safety at the Client Input's sales_plan.planned_quantity. Optional so Analysis Results produced before this module existed stay valid. status NOT_RUN with empty per_component when the Client Input has no sales_plan; single-component only (ERROR, MULTI_COMPONENT_VOLUME_PROFIT_NOT_SUPPORTED, per_component {} otherwise) — see docs/features/volume_profit/SPEC.md sections 3 and 5."
+    },
+
     "meta": {
       "type": "object",
       "additionalProperties": true,
@@ -273,6 +278,55 @@
           "type": "object",
           "description": "Keyed by component_id from the source Client Input's product.price_components. Empty object when BEP refused to run (multi-component gate).",
           "additionalProperties": { "$ref": "#/definitions/bep_component_metrics" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/warning" }
+        }
+      }
+    },
+
+    "volume_profit_component_metrics": {
+      "type": "object",
+      "description": "Volume Profit per-component output — see docs/features/volume_profit/SPEC.md. All money figures are ex-VAT in the reporting currency. operating_profit and margin_of_safety_quantity may legitimately be negative with status OK/ESTIMATED (a loss / a plan below break-even), unlike break_even_quantity_exact. Metrics that depend on contribution_margin_per_unit are ESTIMATED when any contributing direct/variable cost item has basis per_order (assumed one unit per order, SPEC.md section 11).",
+      "required": [
+        "analysis_period_basis",
+        "planned_quantity",
+        "total_net_sales_ex_vat",
+        "total_contribution_margin",
+        "operating_profit",
+        "operating_profit_rate",
+        "break_even_quantity_exact",
+        "margin_of_safety_quantity",
+        "margin_of_safety_rate"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "analysis_period_basis": {
+          "type": ["string", "null"],
+          "description": "Same meaning as bep.per_component[].analysis_period_basis: the single basis the contributing fixed_operating_cost items share, or null when the component has no fixed_operating_cost item. Period CONTEXT, never a quantity unit."
+        },
+        "planned_quantity":          { "$ref": "#/definitions/metric" },
+        "total_net_sales_ex_vat":    { "$ref": "#/definitions/metric" },
+        "total_contribution_margin": { "$ref": "#/definitions/metric" },
+        "operating_profit":          { "$ref": "#/definitions/metric" },
+        "operating_profit_rate":     { "$ref": "#/definitions/metric" },
+        "break_even_quantity_exact": { "$ref": "#/definitions/metric" },
+        "margin_of_safety_quantity": { "$ref": "#/definitions/metric" },
+        "margin_of_safety_rate":     { "$ref": "#/definitions/metric" }
+      }
+    },
+
+    "volume_profit_block": {
+      "type": "object",
+      "required": ["status", "per_component", "warnings"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "$ref": "#/definitions/module_status" },
+        "per_component": {
+          "type": "object",
+          "description": "Keyed by component_id. Empty object when status is NOT_RUN (no sales_plan) or ERROR with MULTI_COMPONENT_VOLUME_PROFIT_NOT_SUPPORTED.",
+          "additionalProperties": { "$ref": "#/definitions/volume_profit_component_metrics" }
         },
         "warnings": {
           "type": "array",

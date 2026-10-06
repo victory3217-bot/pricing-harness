@@ -14,7 +14,8 @@ see `tools/excel_simulator/` for the separate layer that mirrors these formulas 
 | MODE B (target price) | `run_mode_b(client_input)` | [`modes/mode_b.py`](modes/mode_b.py) | [docs/features/mode_b_target_price/SPEC.md](../../docs/features/mode_b_target_price/SPEC.md) |
 | MODE C (allowable direct cost) | `run_mode_c(client_input)` | [`modes/mode_c.py`](modes/mode_c.py) | [docs/features/mode_c_allowable_cost/SPEC.md](../../docs/features/mode_c_allowable_cost/SPEC.md) |
 | BEP (break-even point) | `run_bep(client_input)` | [`modes/bep.py`](modes/bep.py) | [docs/features/bep/SPEC.md](../../docs/features/bep/SPEC.md) |
-| Combined single-analysis result | `build_analysis_result(client_input, client_input_ref)` | [`result_builder.py`](result_builder.py) | calls all four of the above and assembles one `analysis_result.schema.json`-shaped dict |
+| Volume Profit (operating profit and margin of safety at a planned quantity) | `run_volume_profit(client_input)` | [`modes/volume_profit.py`](modes/volume_profit.py) | [docs/features/volume_profit/SPEC.md](../../docs/features/volume_profit/SPEC.md) |
+| Combined single-analysis result | `build_analysis_result(client_input, client_input_ref)` | [`result_builder.py`](result_builder.py) | calls all five of the above and assembles one `analysis_result.schema.json`-shaped dict |
 | Scenario Compare | `run_scenario_compare(request)` | [`scenario_compare.py`](scenario_compare.py) | [docs/features/scenario_compare/SPEC.md](../../docs/features/scenario_compare/SPEC.md) |
 
 Each `run_mode_*`/`run_bep` function takes just `client_input: dict` (already merged/resolved,

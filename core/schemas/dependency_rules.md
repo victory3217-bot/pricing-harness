@@ -212,3 +212,34 @@ itself with more input, it is a structurally unsupported shape for this module v
 precedes — and, when it fires, entirely replaces — every other BEP validation in this section;
 e.g. an inconsistent `fixed_operating_cost` basis on a multi-component input is never itself
 evaluated or reported once the gate has already fired.
+
+## 8. Volume Profit — specifics
+
+See `docs/features/volume_profit/SPEC.md` for the derivation; this section records only the rules
+that are canonical (binding on the implementation) and not already covered by §1-§7.
+
+**Gate order, strictly:** no `sales_plan` -> module `NOT_RUN` (not an error — the question was not
+asked); more than one `product.price_components` entry -> `ERROR`,
+`MULTI_COMPONENT_VOLUME_PROFIT_NOT_SUPPORTED`, `per_component = {}`; only then anything else.
+
+**`sales_plan.planned_quantity` and `sales_plan.period_basis` follow the §1 null rule:** either one
+`null`/missing is `UNKNOWN`, never `0` and never an assumed `per_month`. A negative quantity is
+`ERROR` (`INVALID_NEGATIVE_QUANTITY`). `planned_quantity = 0` is a valid explicit plan.
+
+**CMu and FC are MODE A's and BEP's, unchanged** (§3, §7), including FC's `blended_only` ->
+`UNKNOWN`. One addition: the contributing fixed-cost `basis` must be `per_month`
+(`UNSUPPORTED_FIXED_COST_BASIS_FOR_VOLUME`, `ERROR`, otherwise).
+
+**Negative operating profit and negative margin of safety are valid `OK` results**, not errors and
+not clamped — unlike `break_even_quantity_exact`, which keeps BEP's §7 rule (`NOT_APPLICABLE` for
+`CMu <= 0`). A plan below break-even adds the non-blocking warning `BELOW_BREAK_EVEN`.
+
+**`ESTIMATED` is used for the first time here:** any contributing `product_service_direct_cost` or
+`variable_selling_delivery` item with `basis = per_order` makes every metric that depends on
+per-unit cost `ESTIMATED` (one unit per order is assumed), with the non-blocking warning
+`ASSUMES_ONE_UNIT_PER_ORDER`. `ESTIMATED` does not lower module status (§5).
+
+**Warning ownership:** each root cause is warned once, on the metric that owns that input
+(`planned_quantity`, `total_net_sales_ex_vat`, `total_contribution_margin`, `operating_profit`);
+every other metric that depends on it gets a single `DOWNSTREAM_*` warning pointing at the owner
+metric's path.

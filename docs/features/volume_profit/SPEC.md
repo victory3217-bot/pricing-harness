@@ -2,13 +2,13 @@
 
 ## 0. Status
 
-Design-only. No Python code, schema change, test, Excel, or web work exists yet. This document is
-the formula/dependency source of truth for Volume Profit once implementation starts — it plays the
-same role `docs/features/bep/SPEC.md` plays for BEP. Anything that conflicts with BEP/MODE A/B/C
+Implemented in Python (`core/engine/modes/volume_profit.py`, schema `1.2`, `tests/test_volume_profit.py`).
+Excel and web are not implemented. This document is the formula/dependency source of truth for
+Volume Profit — it plays the same role `docs/features/bep/SPEC.md` plays for BEP. Anything that conflicts with BEP/MODE A/B/C
 semantics is called out explicitly (§12); anything not called out reuses them unchanged.
 
-Every number in the worked example (§14) is a hand calculation, not engine output. It must be
-re-derived by tests once the module exists.
+The worked example (§14) was hand-calculated first and is now reproduced by
+`tests/test_volume_profit.py::test_worked_example_values_match_spec_section_14`.
 
 ## 1. Core question
 
@@ -202,10 +202,10 @@ undefined concept.
   does not assume monthly (BEP §4's same refusal).
 - `period_basis` not `"per_month"` (cannot occur if the schema is enforced; checked anyway) →
   `ERROR`, `UNSUPPORTED_PLAN_PERIOD`.
-- `period_basis` must equal the fixed-cost `analysis_period_basis` when both exist. A difference
-  is `ERROR`, code `PERIOD_BASIS_MISMATCH`. With §6 this is only reachable via a future
-  multi-period expansion, but the check is specified now so adding a period later cannot silently
-  create a mismatch.
+- `period_basis` must equal the fixed-cost `analysis_period_basis` when both exist, else `ERROR`
+  `PERIOD_BASIS_MISMATCH`. **Not implemented in v0.1**: with `per_month` the only supported value
+  on both sides (§6 and the checks above), a mismatch is unreachable, and an unreachable branch
+  cannot be tested. Add the check together with the second supported period.
 
 ## 10. VAT, currency, and what is not produced
 
@@ -331,21 +331,25 @@ engine (still `NOT_IMPLEMENTED` everywhere).
 1. **`units_per_order`.** The `ESTIMATED` workaround (§11) is an honest stopgap, not a fix.
    Whether to add the field, and whether it belongs to the price component or to each cost item,
    is undecided.
-2. **First use of `ESTIMATED`.** Confirm at implementation that `result_builder.py`,
-   `analysis_result.schema.json`, and the Excel/consumers all handle it; no module has emitted it
-   before.
+2. **First use of `ESTIMATED`.** *Python side confirmed:* `result_builder.py`,
+   `analysis_result.schema.json`, and `aggregate_module_status()` handle it with no special-casing
+   (tests assert module status stays `OK`). Excel and any future dashboard consumer are not
+   checked, because neither renders Volume Profit yet.
 3. **Should BEP carry `ASSUMES_ONE_UNIT_PER_ORDER` too?** Today BEP reports `OK` for the same
    `per_order` input (§11). Changing BEP is a behavior change to an implemented, tested module and
    is not made here.
-4. **Extraction of `_sum_fixed_operating_cost` into `economics.py`** (§12). Recommended, but it is
-   a refactor of BEP-adjacent code and must be validated against BEP's existing tests.
+4. **Extraction of `_sum_fixed_operating_cost` into `economics.py`** (§12). *Done:* it is now
+   `economics.sum_fixed_operating_cost` (with the shared `FIXED_COST_MESSAGES`), BEP calls it, and
+   the full pre-existing `pytest` suite plus the five Excel QA scripts pass unchanged.
 5. **Quantity-dependent fixed cost** (§6, `per_unit_per_month`). Rejected as `ERROR` for v0.1;
    modeling it requires deciding how `FC(Q)` interacts with `Q_BEP = FC / CMu`, which becomes
    circular if `FC` depends on `Q`.
 6. **Multi-period support.** Needs a `per_year` (or similar) cost basis in the schema first.
-7. **Schema version.** `1.1` → `1.2` is proposed as additive-only; confirm no consumer pins `1.1`
-   strictly (the four-axis version table in README treats schema version as a data-compatibility
-   marker, so this is a deliberate bump, not a side effect).
+7. **Schema version.** `1.1` → `1.2` is additive-only: `sales_plan` and `volume_profit` are both
+   optional, so every existing `1.1` Client Input and Analysis Result stays valid. No code in the
+   repository pins `1.1`. `result_builder` now stamps `1.2` and `ENGINE_VERSION` is `0.5.0`. The
+   root README's version table and test-count baseline still describe `1.1` / 160 tests and have
+   not been updated.
 
 ## 17. Master Note boundary
 

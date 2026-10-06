@@ -1,11 +1,11 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "source": {
     "client_id": "sample_co_beta",
     "case_id": "sample_case_beta_001",
     "client_input_ref": "core\\schemas\\examples\\valid\\02_ecommerce_product.json",
-    "engine_version": "0.4.0",
-    "calculated_at": "2026-09-11T22:40:55+09:00"
+    "engine_version": "0.5.0",
+    "calculated_at": "2026-10-07T00:20:01+09:00"
   },
   "currency": {
     "reporting": "KRW"
@@ -305,6 +305,11 @@
         "message": "contribution_margin_per_unit 또는 fixed_operating_cost가 미확정이라 손익분기 판매량을 계산할 수 없습니다."
       }
     ]
+  },
+  "volume_profit": {
+    "status": "NOT_RUN",
+    "per_component": {},
+    "warnings": []
   },
   "meta": {
     "missing_input_paths": [

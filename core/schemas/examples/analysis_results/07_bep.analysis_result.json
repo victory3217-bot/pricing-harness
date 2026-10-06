@@ -1,11 +1,11 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "source": {
     "client_id": "sample_co_zeta",
     "case_id": "sample_case_zeta_bep_001",
     "client_input_ref": "core\\schemas\\examples\\valid\\07_bep.json",
-    "engine_version": "0.4.0",
-    "calculated_at": "2026-09-11T22:40:55+09:00"
+    "engine_version": "0.5.0",
+    "calculated_at": "2026-10-07T00:20:01+09:00"
   },
   "currency": {
     "reporting": "KRW"
@@ -284,6 +284,11 @@
         }
       }
     },
+    "warnings": []
+  },
+  "volume_profit": {
+    "status": "NOT_RUN",
+    "per_component": {},
     "warnings": []
   },
   "meta": {

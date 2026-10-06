@@ -80,6 +80,16 @@
       }
     },
 
+    "sales_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional. Planned sales quantity for the Volume Profit module (docs/features/volume_profit/SPEC.md) — the only quantity INPUT in the Harness. Omit the whole object when no plan is being analysed (Volume Profit then reports NOT_RUN). planned_quantity null = not yet entered (UNKNOWN), 0 = an explicit, valid plan of no sales. period_basis states the period planned_quantity is denominated in and must be given alongside it — the engine never assumes a period. v0.1 supports per_month only, matching the only period-style cost_item.basis value.",
+      "properties": {
+        "planned_quantity": { "type": ["number", "null"], "minimum": 0 },
+        "period_basis": { "type": ["string", "null"], "enum": ["per_month", null] }
+      }
+    },
+
     "meta": {
       "type": "object",
       "additionalProperties": true,
