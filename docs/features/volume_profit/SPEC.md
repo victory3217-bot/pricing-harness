@@ -3,7 +3,8 @@
 ## 0. Status
 
 Implemented in Python (`core/engine/modes/volume_profit.py`, schema `1.2`, `tests/test_volume_profit.py`).
-Excel and web are not implemented. This document is the formula/dependency source of truth for
+The Excel Simulator (`12_VOLUME_PROFIT_SIMULATOR`, `13_VOLUME_PROFIT_PARITY_TEST`) and the web
+calculator mirror it; warning codes are not mirrored in Excel. This document is the formula/dependency source of truth for
 Volume Profit — it plays the same role `docs/features/bep/SPEC.md` plays for BEP. Anything that conflicts with BEP/MODE A/B/C
 semantics is called out explicitly (§12); anything not called out reuses them unchanged.
 

@@ -35,8 +35,7 @@ a number is real, missing, or undefined. It ships as a Python Core (the source o
 calculation) plus a JSON contract (request/result schemas) plus an Excel Simulator that mirrors
 the same formulas for live, interactive use and cross-checks itself against the Python Core.
 
-Six capabilities are implemented today, all with passing tests; every one except Volume Profit
-also has Excel parity:
+Six capabilities are implemented today, all with passing tests and Excel parity:
 
 - **MODE A** — current-price diagnosis
 - **MODE B** — target price
@@ -92,7 +91,7 @@ not the full picture.
   If you sell a *planned quantity* in the month, how much operating profit is left after fixed
   operating cost, and how far above or below break-even is that plan? It is the only capability
   that takes a quantity as input (`sales_plan`), and it needs one — without a `sales_plan` its
-  result is `NOT_RUN`. Single-component only; Python Core only for now.
+  result is `NOT_RUN`. Single-component only; not part of Scenario Compare yet.
 - **Scenario Compare** ([docs/features/scenario_compare/](docs/features/scenario_compare/SPEC.md))
   An **orchestration layer, not a sixth calculation engine**: it runs MODE A/B/C and BEP over
   several named scenarios derived from one shared base input, then reports each scenario's
@@ -240,7 +239,7 @@ sibling scenario is never penalized for an unrelated baseline's failure.
 
 ## Excel Simulator
 
-[`tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.5.xlsx`](tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.5.xlsx)
+[`tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.6.xlsx`](tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.6.xlsx)
 is a tracked, ready-to-open workbook — you don't need to build anything to use it. It is a
 **presentation/parity layer**, not a 1:1 UI over every Python Core capability: it exposes a
 simplified, representative-slot version of each mode's inputs (see
@@ -253,7 +252,7 @@ To regenerate it from the current formula-generation code:
 python tools/excel_simulator/build_workbook.py
 ```
 
-This always writes to `tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.5.xlsx` relative
+This always writes to `tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.6.xlsx` relative
 to the script's own location, regardless of your current working directory.
 
 ## Excel QA
@@ -264,6 +263,7 @@ python tools/excel_simulator/qa_check_mode_b.py               # MODE B
 python tools/excel_simulator/qa_check_mode_c.py               # MODE C
 python tools/excel_simulator/qa_check_bep.py                  # BEP
 python tools/excel_simulator/qa_check_scenario_compare.py     # Scenario Compare
+python tools/excel_simulator/qa_check_volume_profit.py        # Volume Profit
 ```
 
 Each script recalculates the tracked workbook via **LibreOffice headless** (so formulas are
@@ -291,6 +291,7 @@ against whatever commit you have checked out):
 - MODE C Excel QA: 20/20 PASS
 - BEP Excel QA: PASS
 - Scenario Compare Excel QA: 25 cases PASS
+- Volume Profit Excel QA: PASS (29 simulator scenarios, 30 parity cases)
 - raw Excel errors: 0
 
 ## Current limitations
@@ -308,9 +309,10 @@ against whatever commit you have checked out):
 - A real **shared-cost allocation engine** is not implemented anywhere yet; Excel only simulates
   the allocation-status states (`none`/`unresolved`/`invalid`) as test controls, and the Python
   Core does not yet allocate a shared cost item across components.
-- **Volume Profit is Python Core only**: the Excel Simulator and Scenario Compare do not cover it
-  yet. It is single-component and supports only the `per_month` period, and any `per_order` cost
-  makes its quantity-dependent metrics `ESTIMATED` (one unit per order is assumed).
+- **Volume Profit** is not part of Scenario Compare yet. It is single-component and supports only
+  the `per_month` period, and any `per_order` cost makes its quantity-dependent metrics `ESTIMATED`
+  (one unit per order is assumed). Its Excel sheets compare values, statuses and module status
+  with the Python Core, but not warning codes.
 - `build_workbook.py` has an import-time side effect (importing the module regenerates and saves
   the workbook) — always run it as a script (`python tools/excel_simulator/build_workbook.py`),
   never `import build_workbook` from another script or a REPL.
@@ -324,7 +326,7 @@ meant to match each other, and none of them should be read as covering what anot
 |---|---|---|---|
 | **Product release** | `0.1.0-beta.4` | root [`VERSION`](VERSION) file, tagged in git as `v0.1.0-beta.4` | The Pricing Harness as a whole (Python Core + schemas + Excel Simulator + docs) at a point in time. This is the sanitized public repository's release identity — current maturity is **Limited/Beta**. |
 | Python engine marker | `0.5.0` | `ENGINE_VERSION` in [`core/engine/result_builder.py`](core/engine/result_builder.py) | The calculation engine's own internal iteration, stamped into every generated Analysis Result's `source.engine_version` field. |
-| Excel Simulator artifact | `v0.5` | the workbook's own filename, `Pricing_Harness_Excel_Simulator_v0.5.xlsx` | This specific Excel build's own iteration, independent of the Python engine or the product release. |
+| Excel Simulator artifact | `v0.6` | the workbook's own filename, `Pricing_Harness_Excel_Simulator_v0.6.xlsx` | This specific Excel build's own iteration, independent of the Python engine or the product release. |
 | Schema / data contract | `1.2` | `schema_version` field inside every Client Input / Analysis Result / Scenario Compare document | The *shape* of the JSON documents flowing through the system — a data-compatibility version, not a software release. `1.2` added the optional `sales_plan` (Client Input) and `volume_profit` (Analysis Result); every `1.1` document remains valid. |
 
 These four numbers will drift apart over time by design: a schema migration, an engine-only

@@ -35,8 +35,7 @@ status가 함께 태그되어 있어 사용 측에서 그 값이 실제 값인�
 schema) + 동일한 공식을 그대로 미러링해 실시간·인터랙티브로 확인할 수 있고 Python Core와 스스로
 대조 검증하는 Excel Simulator로 구성되어 있습니다.
 
-현재 다음 6개 기능이 구현되어 있으며, 모두 테스트를 통과합니다. Volume Profit을 제외한 모든 기능은
-Excel parity 검증도 통과합니다:
+현재 다음 6개 기능이 구현되어 있으며, 모두 테스트와 Excel parity 검증을 통과합니다:
 
 - **MODE A** — 현재가 기준 진단(current-price diagnosis)
 - **MODE B** — 목표 가격(target price)
@@ -88,7 +87,7 @@ Analysis Result의 모든 계산값이 단순 숫자가 아니라 `{value, statu
 - **Volume Profit — operating profit at a planned quantity** ([docs/features/volume_profit/](docs/features/volume_profit/SPEC.md))
   한 달에 *계획 판매량*만큼 팔면 고정운영비를 제하고 영업이익이 얼마 남는지, 그 계획이 손익분기보다
   얼마나 위(또는 아래)인지 계산합니다. 판매량을 입력(`sales_plan`)으로 받는 유일한 기능이며,
-  `sales_plan`이 없으면 결과는 `NOT_RUN`입니다. 단일 component만 지원하며, 현재는 Python Core 전용입니다.
+  `sales_plan`이 없으면 결과는 `NOT_RUN`입니다. 단일 component만 지원하며, 아직 Scenario Compare에는 포함되지 않습니다.
 - **Scenario Compare** ([docs/features/scenario_compare/](docs/features/scenario_compare/SPEC.md))
   **orchestration layer이며, 여섯 번째 계산 엔진이 아닙니다**: 하나의 공유 base input에서 파생된
   여러 named scenario에 대해 MODE A/B/C와 BEP를 실행하고, 각 scenario의 절대값 결과와 선택된
@@ -235,7 +234,7 @@ sibling scenario가 관련 없는 baseline의 실패 때문에 불이익을 받�
 
 ## Excel Simulator
 
-[`tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.5.xlsx`](tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.5.xlsx)는
+[`tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.6.xlsx`](tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.6.xlsx)는
 tracked된, 바로 열어 쓸 수 있는 workbook입니다 — 사용하기 위해 무언가를 빌드할 필요가 없습니다.
 이것은 **presentation/parity layer**이며, Python Core의 모든 기능을 그대로 1:1로 옮긴 UI가
 아닙니다: 각 mode 입력의 단순화된 대표 슬롯(representative slot) 버전만 노출하며(
@@ -249,7 +248,7 @@ python tools/excel_simulator/build_workbook.py
 ```
 
 이 명령은 현재 작업 디렉터리와 무관하게 항상
-`tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.5.xlsx`(스크립트 자신의 위치 기준
+`tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.6.xlsx`(스크립트 자신의 위치 기준
 상대 경로)에 저장합니다.
 
 ## Excel QA
@@ -260,6 +259,7 @@ python tools/excel_simulator/qa_check_mode_b.py               # MODE B
 python tools/excel_simulator/qa_check_mode_c.py               # MODE C
 python tools/excel_simulator/qa_check_bep.py                  # BEP
 python tools/excel_simulator/qa_check_scenario_compare.py     # Scenario Compare
+python tools/excel_simulator/qa_check_volume_profit.py        # Volume Profit
 ```
 
 각 스크립트는 tracked workbook을 **LibreOffice headless**로 재계산해(캐시된 값이 아니라 수식이
@@ -286,6 +286,7 @@ python core/schemas/validate_examples.py  # 제공된 모든 example의 schema v
 - MODE C Excel QA: 20/20 PASS
 - BEP Excel QA: PASS
 - Scenario Compare Excel QA: 25 cases PASS
+- Volume Profit Excel QA: PASS (시뮬레이터 29개 시나리오, parity 30개 케이스)
 - raw Excel errors: 0
 
 ## 현재 제한사항 (Current limitations)
@@ -301,9 +302,10 @@ python core/schemas/validate_examples.py  # 제공된 모든 example의 schema v
 - 실제 **shared-cost allocation engine**은 아직 어디에도 구현되어 있지 않습니다; Excel은 테스트
   전용 컨트롤로 allocation-status 상태(`none`/`unresolved`/`invalid`)만 시뮬레이션하며, Python
   Core도 아직 여러 component에 걸쳐 공유 cost item을 배분하지 않습니다.
-- **Volume Profit은 Python Core 전용입니다**: Excel Simulator와 Scenario Compare는 아직 이를
-  다루지 않습니다. 단일 component만 지원하고 `per_month` 기간만 지원하며, `per_order` 비용이 있으면
-  판매량에 의존하는 지표는 `ESTIMATED`가 됩니다(주문당 1개 판매를 가정).
+- **Volume Profit**은 아직 Scenario Compare에 포함되지 않습니다. 단일 component만 지원하고
+  `per_month` 기간만 지원하며, `per_order` 비용이 있으면 판매량에 의존하는 지표는 `ESTIMATED`가
+  됩니다(주문당 1개 판매를 가정). Excel 시트는 Python Core와 값·상태·모듈 상태를 대조하며, 경고
+  코드(warnings)는 대조하지 않습니다.
 - `build_workbook.py`는 import-time side effect를 가지고 있습니다(모듈을 import하는 것만으로
   workbook이 재생성·저장됩니다) — 항상 스크립트로 실행하십시오
   (`python tools/excel_simulator/build_workbook.py`), 다른 스크립트나 REPL에서
@@ -318,7 +320,7 @@ Pricing Harness에는 네 개의 독립적인 버전 축이 있습니다 — 각
 |---|---|---|---|
 | **Product release** | `0.1.0-beta.4` | root [`VERSION`](VERSION) 파일, git tag `v0.1.0-beta.4` | 어느 시점의 Pricing Harness 전체(Python Core + schema + Excel Simulator + 문서). 이 sanitized 공개 저장소의 release identity이며 — 현재 성숙도는 **Limited/Beta**입니다. |
 | Python engine marker | `0.5.0` | [`core/engine/result_builder.py`](core/engine/result_builder.py)의 `ENGINE_VERSION` | 계산 엔진 자체의 내부 iteration으로, 생성되는 모든 Analysis Result의 `source.engine_version` 필드에 기록됩니다. |
-| Excel Simulator artifact | `v0.5` | workbook 파일명 자체, `Pricing_Harness_Excel_Simulator_v0.5.xlsx` | Python engine이나 product release와 무관한, 이 특정 Excel build 자체의 iteration. |
+| Excel Simulator artifact | `v0.6` | workbook 파일명 자체, `Pricing_Harness_Excel_Simulator_v0.6.xlsx` | Python engine이나 product release와 무관한, 이 특정 Excel build 자체의 iteration. |
 | Schema / data contract | `1.2` | 모든 Client Input / Analysis Result / Scenario Compare 문서 안의 `schema_version` 필드 | 시스템을 흐르는 JSON 문서의 *모양(shape)* — 소프트웨어 릴리스가 아니라 데이터 호환성 버전입니다. `1.2`는 선택 필드 `sales_plan`(Client Input)과 `volume_profit`(Analysis Result)를 추가했으며, 기존 `1.1` 문서는 모두 그대로 유효합니다. |
 
 이 네 숫자는 설계상 시간이 지나며 서로 달라집니다: schema migration, engine 전용 공식 수정,
