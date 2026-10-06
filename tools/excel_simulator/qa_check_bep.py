@@ -47,7 +47,7 @@ from core.engine.modes.bep import run_bep  # noqa: E402
 from scenario_helpers import make_client_input_bep, METRIC_KEYS_BEP  # noqa: E402
 
 SOFFICE = r"C:\Program Files\LibreOffice\program\soffice.exe"
-BASE_WB = HERE / "Pricing_Harness_Excel_Simulator_v0.5.xlsx"
+BASE_WB = HERE / "Pricing_Harness_Excel_Simulator_v0.6.xlsx"
 SCRATCH = HERE / "_qa_scratch_bep"
 
 _label_to_row = {}

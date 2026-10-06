@@ -576,6 +576,130 @@ def build_bep_formulas(ws, cell_map, refs):
     }
 
 
+def build_volume_profit_formulas(ws, cell_map, refs):
+    """Writes Volume Profit's formula chain (docs/features/volume_profit/SPEC.md /
+    core/engine/modes/volume_profit.py) into `ws` at the (row, col) positions given per key in
+    `cell_map`, using the input references in `refs`. Reuses build_bep_formulas() for N, CMu, FC
+    and the fixed-cost period basis (the same price-basis, contribution-margin and fixed-cost
+    rules Volume Profit shares with BEP), then adds only what is Volume Profit's own: the
+    planned-quantity leaf, the per_month-only fixed-cost basis rule, the eight metrics, their
+    per-metric statuses, and the module status.
+
+    A metric is a numeric value, or the literal status text "UNKNOWN" / "ERROR" /
+    "NOT_APPLICABLE" (or "NOT_RUN" when the Sales Plan Present control is "absent"). The
+    separate status cell adds the one state a value alone cannot carry: ESTIMATED, a numeric
+    value that depends on per-unit cost while `haspo` (Per-Order Cost Present) is TRUE (SPEC.md
+    section 11 — one unit per order is assumed). Status precedence is Python's: ERROR > UNKNOWN,
+    and an UNKNOWN input beats NOT_APPLICABLE (SPEC.md section 8).
+
+    Excel-only controls (not schema fields): `plan` ("present"/"absent" — no sales_plan means the
+    module is NOT_RUN), `haspo`, and the BEP controls `fcs` (Fixed Cost Allocation Status), and
+    optionally `fbc` and `cc` (Component Count; > 1 collapses every metric to ERROR, evaluated
+    after the NOT_RUN gate, as in run_volume_profit()'s gate order).
+
+    Returns {"metrics": {key: coord}, "status": {key: coord}, "module_status": coord,
+    "analysis_period_basis": coord}.
+    """
+    q, period, plan, haspo = refs["q"], refs["period"], refs["plan"], refs["haspo"]
+    cc = refs.get("cc")
+
+    def coord(key):
+        row, col = cell_map[key]
+        return ws.cell(row=row, column=col).coordinate
+
+    def put(key, formula):
+        row, col = cell_map[key]
+        return ws.cell(row=row, column=col, value=formula).coordinate
+
+    bep_refs = {k: refs[k] for k in ("p", "incvat", "v", "direct", "varfixed", "ratenet",
+                                      "rategross", "fc", "fcbasis", "fcs")}
+    for optional in ("fbc", "cc"):
+        if refs.get(optional):
+            bep_refs[optional] = refs[optional]
+    bep_cells = build_bep_formulas(ws, {
+        "_n": cell_map["_n"], "_g": cell_map["_g"],
+        "contribution_margin_per_unit": cell_map["_cmu"],
+        "fixed_operating_cost": cell_map["_fc_bep"],
+        "break_even_quantity_exact": cell_map["_q_bep_unused"],
+        "analysis_period_basis": cell_map["_basis_bep"],
+        "_diagnostic_code": cell_map["_diag"],
+    }, bep_refs)
+    n = coord("_n")
+    cmu = bep_cells["contribution_margin_per_unit"]
+    fc_bep = bep_cells["fixed_operating_cost"]
+    basis_bep = bep_cells["analysis_period_basis"]
+
+    # Fixed-cost basis must be per_month (SPEC.md section 6): any other basis on a numeric FC is
+    # a structurally unsupported shape -> ERROR (UNSUPPORTED_FIXED_COST_BASIS_FOR_VOLUME).
+    fcv = put("_fc_vp", (
+        f'=IF(AND(ISNUMBER({fc_bep}),{basis_bep}<>"",{basis_bep}<>"per_month"),"ERROR",{fc_bep})'
+    ))
+
+    # Planned-quantity leaf (SPEC.md section 7/9): negative -> ERROR, unsupported period -> ERROR,
+    # missing quantity or period -> UNKNOWN (the period is never assumed), else the quantity.
+    ql = put("_q_leaf", (
+        f'=IF(AND(NOT(ISBLANK({q})),{q}<0),"ERROR",'
+        f'IF(AND({period}<>"",{period}<>"per_month"),"ERROR",'
+        f'IF(OR(ISBLANK({q}),{period}=""),"UNKNOWN",{q})))'
+    ))
+
+    def gated(core):
+        inner = f'IF({cc}>1,"ERROR",{core})' if cc else core
+        return f'=IF({plan}="absent","NOT_RUN",{inner})'
+
+    def combine(error_refs, unknown_refs, ok_expr, not_applicable_when=None):
+        err = ",".join(f'{r}="ERROR"' for r in error_refs)
+        unk = ",".join(f"NOT(ISNUMBER({r}))" for r in unknown_refs)
+        ok = ok_expr
+        if not_applicable_when:
+            ok = f'IF({not_applicable_when},"NOT_APPLICABLE",{ok_expr})'
+        return f'IFERROR(IF(OR({err}),"ERROR",IF(OR({unk}),"UNKNOWN",{ok})),"ERROR")'
+
+    m = {}
+    m["planned_quantity"] = put("planned_quantity", gated(ql))
+    ts_cell = coord("total_net_sales_ex_vat")
+    op_cell = coord("operating_profit")
+    qb_cell = coord("break_even_quantity_exact")
+    m["total_net_sales_ex_vat"] = put("total_net_sales_ex_vat",
+                                      gated(combine([ql, n], [ql, n], f"{n}*{ql}")))
+    m["total_contribution_margin"] = put("total_contribution_margin",
+                                         gated(combine([ql, cmu], [ql, cmu], f"{cmu}*{ql}")))
+    m["operating_profit"] = put("operating_profit",
+                                gated(combine([ql, cmu, fcv], [ql, cmu, fcv], f"{cmu}*{ql}-{fcv}")))
+    m["operating_profit_rate"] = put("operating_profit_rate", gated(combine(
+        [op_cell, ts_cell], [op_cell, ts_cell], f"{op_cell}/{ts_cell}",
+        not_applicable_when=f"{ts_cell}=0")))
+    m["break_even_quantity_exact"] = put("break_even_quantity_exact", gated(combine(
+        [cmu, fcv], [cmu, fcv], f"{fcv}/{cmu}", not_applicable_when=f"{cmu}<=0")))
+    m["margin_of_safety_quantity"] = put("margin_of_safety_quantity", gated(combine(
+        [ql, cmu, fcv], [ql, cmu, fcv], f"{ql}-{qb_cell}", not_applicable_when=f"{cmu}<=0")))
+    m["margin_of_safety_rate"] = put("margin_of_safety_rate", gated(combine(
+        [ql, cmu, fcv], [ql, cmu, fcv], f"({ql}-{qb_cell})/{ql}",
+        not_applicable_when=f"OR({cmu}<=0,{ql}=0)")))
+
+    depends_on_cost = {
+        "planned_quantity": False, "total_net_sales_ex_vat": False,
+        "total_contribution_margin": True, "operating_profit": True, "operating_profit_rate": True,
+        "break_even_quantity_exact": True, "margin_of_safety_quantity": True,
+        "margin_of_safety_rate": True,
+    }
+    st = {}
+    for key, cost_dep in depends_on_cost.items():
+        val = m[key]
+        estimated = f'IF({haspo}=TRUE,"ESTIMATED","OK")' if cost_dep else '"OK"'
+        st[key] = put(f"{key}__status", f'=IF(ISNUMBER({val}),{estimated},{val})')
+
+    err_terms = ",".join(f'{c}="ERROR"' for c in st.values())
+    unk_terms = ",".join(f'{c}="UNKNOWN"' for c in st.values())
+    module_status = put("module_status", (
+        f'=IF({plan}="absent","NOT_RUN",IF(OR({err_terms}),"ERROR",'
+        f'IF(OR({unk_terms}),"INCOMPLETE","OK")))'
+    ))
+    basis = put("analysis_period_basis", f'=IF({plan}="absent","",{basis_bep})')
+    return {"metrics": m, "status": st, "module_status": module_status,
+            "analysis_period_basis": basis}
+
+
 def build_scenario_compare_column_formulas(ws, col, row_map, base_refs, override_refs, validity_ref=None):
     """Writes ONE scenario column's full formula chain (docs/features/scenario_compare/SPEC.md /
     core/engine/scenario_compare.py) — effective inputs, then MODE A/B/C/BEP formula chains
@@ -798,7 +922,7 @@ g.column_dimensions["A"].width = 2
 g.column_dimensions["B"].width = 100
 
 r = 2
-title_row(g, r, "MODE A + MODE B + MODE C + BEP + Scenario Compare Excel Simulator — Pricing Harness", span=1); r += 2
+title_row(g, r, "MODE A + MODE B + MODE C + BEP + Scenario Compare + Volume Profit Excel Simulator — Pricing Harness", span=1); r += 2
 
 section_row(g, r, "Source of Truth 구조 (반드시 지켜야 하는 원칙)", span=1); r += 1
 guide_lines = [
@@ -827,7 +951,7 @@ c.alignment = Alignment(wrap_text=True, vertical="top")
 g.row_dimensions[r].height = 40
 r += 2
 
-section_row(g, r, "이번 버전(v0.5)이 완전히 지원하는 범위", span=1); r += 1
+section_row(g, r, "이번 버전(v0.6)이 완전히 지원하는 범위", span=1); r += 1
 scope_lines = [
     "01_SIMULATOR(MODE A)는 단일 컴포넌트 상품(simple one-time product, ecommerce product)만 대화형으로 지원합니다.",
     "03_PARITY_TEST(MODE A)에서 두 시나리오(simple / ecommerce) 모두 Python 엔진 결과와 대조 검증되어 있습니다.",
@@ -844,7 +968,9 @@ scope_lines = [
     "Python 엔진(core/engine/scenario_compare.py)으로 대조 검증되어 있습니다 — baseline self-delta "
     "status 전파, invalid baseline의 sibling absolute 보존, request-level ERROR(duplicate scenario_id/"
     "baseline not found)까지 포함합니다.",
-    "blank=UNKNOWN / 0=explicit zero 원칙은 MODE A, MODE B, MODE C, BEP, Scenario Compare 모두 동일하게 적용됩니다.",
+    "12_VOLUME_PROFIT_SIMULATOR는 단일 컴포넌트·월(per_month) 기준으로 월 계획 판매량(Planned Quantity)에서 총 순매출·총 공헌이익·영업이익·손익분기 판매량·안전한계를 대화형으로 계산합니다. 값 셀과 별도로 Status 열에 OK/ESTIMATED/UNKNOWN/ERROR/NOT_APPLICABLE/NOT_RUN을 표시합니다 — 정액(주문당) 비용이 있으면 판매량 의존 지표가 ESTIMATED(주문당 1개 판매 가정)이고, 음수 영업이익·음수 안전한계는 오류가 아닌 유효한 결과입니다. Excel-only 컨트롤 3개(Per-Order Cost Present, Fixed Cost Allocation Status, Sales Plan Present)를 사용합니다.",
+    "13_VOLUME_PROFIT_PARITY_TEST에서 30개 케이스 전부 Excel 실시간 재계산 vs Python 엔진(core/engine/modes/volume_profit.py)으로 값·상태(ESTIMATED 포함)·모듈 상태·기간 basis를 대조 검증합니다. 경고 코드(warnings)는 Excel에 대응 셀이 없어 비교하지 않습니다. Volume Profit은 Scenario Compare(10/11번 시트)에 아직 연동되지 않았습니다.",
+    "blank=UNKNOWN / 0=explicit zero 원칙은 MODE A, MODE B, MODE C, BEP, Scenario Compare, Volume Profit 모두 동일하게 적용됩니다.",
 ]
 for line in scope_lines:
     g.merge_cells(start_row=r, start_column=2, end_row=r, end_column=2)
@@ -3702,6 +3828,439 @@ pscc.conditional_formatting.add(oc_sc.coordinate, FormulaRule(formula=[f'{oc_sc.
 pscc.freeze_panes = "B4"
 print("11_SCENARIO_COMPARE_PARITY_OK")
 
-OUT_PATH = ROOT / "tools" / "excel_simulator" / "Pricing_Harness_Excel_Simulator_v0.5.xlsx"
+# ================================================================
+# SHEET: 12_VOLUME_PROFIT_SIMULATOR
+# ================================================================
+from core.engine.modes.volume_profit import run_volume_profit  # noqa: E402
+from scenario_helpers import (  # noqa: E402
+    METRIC_KEYS_VP, METRIC_LABELS_VP, make_client_input_vp, vp_reference,
+)
+
+VP_FMT = {
+    "planned_quantity": "#,##0.00", "total_net_sales_ex_vat": "#,##0", "total_contribution_margin": "#,##0",
+    "operating_profit": "#,##0", "operating_profit_rate": "0.0%", "break_even_quantity_exact": "#,##0.00",
+    "margin_of_safety_quantity": "#,##0.00", "margin_of_safety_rate": "0.0%",
+}
+VP_NOTES = {
+    "planned_quantity": "sales_plan.planned_quantity — 기간(per_month)이 함께 있어야 사용 가능",
+    "total_net_sales_ex_vat": "N × Q (VAT 제외)",
+    "total_contribution_margin": "CMu × Q",
+    "operating_profit": "CMu × Q − FC. 음수(손실)도 유효한 OK 결과 — 0으로 자르지 않음",
+    "operating_profit_rate": "영업이익 ÷ 총 순매출. 총 순매출이 0이면 NOT_APPLICABLE",
+    "break_even_quantity_exact": "Q_BEP = FC / CMu (BEP와 동일). CMu<=0이면 NOT_APPLICABLE",
+    "margin_of_safety_quantity": "Q − Q_BEP. 음수는 손익분기 미달을 뜻하는 유효한 결과",
+    "margin_of_safety_rate": "(Q − Q_BEP) / Q. Q=0이거나 Q_BEP가 없으면 NOT_APPLICABLE",
+}
+
+
+def _vp_pass_fail_format(ws_, coord):
+    ws_.conditional_formatting.add(coord, FormulaRule(formula=[f'{coord}="FAIL"'], fill=PatternFill("solid", fgColor=RED_BG)))
+    ws_.conditional_formatting.add(coord, FormulaRule(formula=[f'{coord}="PASS"'], fill=PatternFill("solid", fgColor=GREEN_BG)))
+
+
+svp = wb.create_sheet("12_VOLUME_PROFIT_SIMULATOR")
+svp.sheet_view.showGridLines = False
+svp.column_dimensions["A"].width = 2
+svp.column_dimensions["B"].width = 40
+svp.column_dimensions["C"].width = 16
+svp.column_dimensions["D"].width = 16
+svp.column_dimensions["E"].width = 62
+
+r = 2
+title_row(svp, r, "12. Volume Profit Simulator — 판매량 기반 영업이익 (Interactive)", span=4); r += 2
+section_row(svp, r, "INPUT (노란 셀만 입력, 단일 컴포넌트·월 기준)", span=3); r += 1
+
+VP_INPUTS = [
+    ("actual_price", "Actual Price", 35000, '#,##0', "현재 실제 판매가격 — MODE A/BEP와 동일한 가격 기준"),
+    ("includes_vat", "Price Includes VAT", True, None, "TRUE=판매가에 VAT 포함 / FALSE=별도 / 빈칸=모름"),
+    ("vat_rate", "VAT Rate (v)", 0.10, "0.0%", "a=0이고 가격이 VAT 별도면 CMu 계산에 불필요"),
+    ("direct", "Product/Service Direct Cost", 13500, '#,##0', "개당 직접원가 합계"),
+    ("varfixed", "Variable Selling/Delivery Cost (Fixed Amount)", 3000, '#,##0', "variable_selling_delivery 중 금액형 항목 합계"),
+    ("haspo", "Per-Order Cost Present (Excel simulation control — not a schema field)", True, None,
+     "Excel-only. TRUE=위 금액형 변동비에 basis=per_order 항목이 있음 → 판매량 의존 지표가 ESTIMATED(주문당 1개 판매 가정). FALSE=개당(per_unit) 비용"),
+    ("ratenet", "Net-Sales Fee Rate (b)", 0, "0.0%", "rate_of_net_sales 합계. 없으면 0"),
+    ("rategross", "Gross-Payment Fee Rate (a)", 0.025, "0.0%", "rate_of_gross_payment 합계. 없으면 0"),
+    ("fc", "Fixed Operating Cost Amount", 2000000, '#,##0', "월 고정운영비 — Fixed Cost Allocation Status=component일 때만 사용"),
+    ("fcbasis", "Fixed Operating Cost Basis", "per_month", None, "판매량 손익은 per_month만 지원 — 다른 값은 ERROR(UNSUPPORTED_FIXED_COST_BASIS_FOR_VOLUME)"),
+    ("fcs", "Fixed Cost Allocation Status (Excel simulation control — not a schema field)", "component", None,
+     "Excel-only. none=고정운영비 항목 없음(FC 확정 0) / component=위 금액·basis 사용 / unresolved=배부 미구현(UNKNOWN) / blended_only=배부 대상 아님(UNKNOWN) / invalid_direct=shared+direct 모순(ERROR)"),
+    ("q", "Planned Quantity per Month (units)", 200, '#,##0.##', "sales_plan.planned_quantity — 빈칸=미입력(UNKNOWN), 0=판매 없음(유효), 음수=ERROR"),
+    ("period", "Plan Period Basis", "per_month", None, "sales_plan.period_basis — 빈칸=UNKNOWN(기간을 임의로 가정하지 않음), per_month 외=ERROR"),
+    ("plan", "Sales Plan Present (Excel simulation control — not a schema field)", "present", None,
+     "Excel-only. present=sales_plan 있음 / absent=sales_plan 없음 → 모듈 NOT_RUN(오류 아님)"),
+]
+ROWS_VP = {}
+for key, label_txt, default, fmt, note in VP_INPUTS:
+    ROWS_VP[key] = r
+    label(svp, r, 2, label_txt, wrap=True)
+    input_cell(svp, r, 3, default, fmt=fmt)
+    label(svp, r, 5, note, wrap=True)
+    svp.row_dimensions[r].height = 30 if len(note) > 60 or len(label_txt) > 44 else 18
+    r += 1
+r += 1
+
+REFS_VP = {k: f"$C${ROWS_VP[k]}" for k in ROWS_VP}
+REFS_VP["p"], REFS_VP["incvat"], REFS_VP["v"] = (
+    REFS_VP["actual_price"], REFS_VP["includes_vat"], REFS_VP["vat_rate"])
+
+section_row(svp, r, "RESULT (계산값 — 직접 입력 금지)", span=3); r += 1
+svp.cell(row=r, column=3, value="Value").font = header_font
+svp.cell(row=r, column=3).fill = header_fill
+svp.cell(row=r, column=4, value="Status").font = header_font
+svp.cell(row=r, column=4).fill = header_fill
+r += 1
+RESULT_ROWS_VP = {}
+for key in METRIC_KEYS_VP:
+    RESULT_ROWS_VP[key] = r
+    r += 1
+ROW_BASIS_VP = r; r += 1
+ROW_MODULE_VP = r; r += 1
+HELPER_ROW_VP = r; r += 1
+
+VP_HELPER_KEYS = ["_n", "_g", "_cmu", "_fc_bep", "_basis_bep", "_q_bep_unused", "_diag", "_q_leaf", "_fc_vp"]
+cell_map_vp = {}
+for key in METRIC_KEYS_VP:
+    cell_map_vp[key] = (RESULT_ROWS_VP[key], 3)
+    cell_map_vp[f"{key}__status"] = (RESULT_ROWS_VP[key], 4)
+cell_map_vp["analysis_period_basis"] = (ROW_BASIS_VP, 3)
+cell_map_vp["module_status"] = (ROW_MODULE_VP, 3)
+for i, key in enumerate(VP_HELPER_KEYS):
+    cell_map_vp[key] = (HELPER_ROW_VP, 10 + i)
+    svp.column_dimensions[get_column_letter(10 + i)].hidden = True
+RESULT_CELLS_VP = build_volume_profit_formulas(svp, cell_map_vp, REFS_VP)
+
+for key in METRIC_KEYS_VP:
+    row = RESULT_ROWS_VP[key]
+    label(svp, row, 2, METRIC_LABELS_VP[key])
+    c = svp.cell(row=row, column=3)
+    c.font = value_font
+    c.border = box
+    c.alignment = Alignment(vertical="center", horizontal="right")
+    c.number_format = VP_FMT[key]
+    coord = c.coordinate
+    for text, color in (("ERROR", RED_BG), ("UNKNOWN", YELLOW), ("NOT_APPLICABLE", YELLOW), ("NOT_RUN", YELLOW)):
+        svp.conditional_formatting.add(coord, FormulaRule(formula=[f'{coord}="{text}"'], fill=PatternFill("solid", fgColor=color)))
+    svp.conditional_formatting.add(coord, FormulaRule(formula=[f'ISNUMBER({coord})'], fill=PatternFill("solid", fgColor=GREEN_BG)))
+    sc_ = svp.cell(row=row, column=4)
+    sc_.font = value_font
+    sc_.border = box
+    sc_.alignment = Alignment(vertical="center", horizontal="center")
+    scoord = sc_.coordinate
+    svp.conditional_formatting.add(scoord, FormulaRule(formula=[f'{scoord}="ESTIMATED"'], fill=PatternFill("solid", fgColor=YELLOW)))
+    svp.conditional_formatting.add(scoord, FormulaRule(formula=[f'{scoord}="ERROR"'], fill=PatternFill("solid", fgColor=RED_BG)))
+    label(svp, row, 5, VP_NOTES[key], wrap=True)
+
+label(svp, ROW_BASIS_VP, 2, "Analysis Period Basis")
+bc_ = svp.cell(row=ROW_BASIS_VP, column=3)
+bc_.font = value_font
+bc_.border = box
+bc_.alignment = Alignment(vertical="center", horizontal="right")
+label(svp, ROW_BASIS_VP, 5, "고정운영비가 정의된 기간 context (BEP와 동일). 빈칸=항목 없음/UNKNOWN/ERROR/NOT_RUN")
+
+label(svp, ROW_MODULE_VP, 2, "Overall Status")
+mc_ = svp.cell(row=ROW_MODULE_VP, column=3)
+mc_.font = value_font
+mc_.border = box
+mc_.alignment = Alignment(vertical="center", horizontal="right")
+label(svp, ROW_MODULE_VP, 5, "ERROR > INCOMPLETE(UNKNOWN 있음) > OK. NOT_APPLICABLE·ESTIMATED는 모듈 상태를 낮추지 않음. sales_plan 없음=NOT_RUN")
+for text, color in (("ERROR", RED_BG), ("INCOMPLETE", YELLOW), ("NOT_RUN", YELLOW), ("OK", GREEN_BG)):
+    svp.conditional_formatting.add(mc_.coordinate, FormulaRule(formula=[f'{mc_.coordinate}="{text}"'], fill=PatternFill("solid", fgColor=color)))
+
+ROW_SELF_CHECK_VP = r
+label(svp, r, 2, "Self-Check: |MoS qty × CMu − Operating Profit| ≤ tolerance?")
+mos_q = RESULT_CELLS_VP["metrics"]["margin_of_safety_quantity"]
+op_c = RESULT_CELLS_VP["metrics"]["operating_profit"]
+cmu_helper = svp.cell(row=HELPER_ROW_VP, column=10 + VP_HELPER_KEYS.index("_cmu")).coordinate
+sc_vp = formula_cell(svp, r, 3, (
+    f'=IF(OR(NOT(ISNUMBER({mos_q})),NOT(ISNUMBER({cmu_helper})),NOT(ISNUMBER({op_c}))),'
+    f'"N/A — not numeric",IF(ABS({mos_q}*{cmu_helper}-{op_c})<=0.01,"PASS","FAIL"))'
+), fmt="General", bold=False)
+svp.merge_cells(start_row=r, start_column=3, end_row=r, end_column=4)
+sc_vp.alignment = Alignment(horizontal="left")
+label(svp, r, 5, "(Q − Q_BEP) × CMu = CMu×Q − FC 항등식으로 영업이익과 안전한계가 서로 독립적으로 맞물리는지 역산 검증")
+_vp_pass_fail_format(svp, sc_vp.coordinate)
+r += 2
+
+section_row(svp, r, "DASHBOARD CARD", span=5); r += 1
+card_top = r
+cards_vp = [
+    ("Operating Profit", RESULT_CELLS_VP["metrics"]["operating_profit"], '#,##0'),
+    ("Break-Even Quantity", RESULT_CELLS_VP["metrics"]["break_even_quantity_exact"], '#,##0.00'),
+    ("Margin of Safety Rate", RESULT_CELLS_VP["metrics"]["margin_of_safety_rate"], '0.0%'),
+]
+col = 2
+for label_txt, ref, fmt in cards_vp:
+    svp.merge_cells(start_row=card_top, start_column=col, end_row=card_top, end_column=col + 1)
+    lc = svp.cell(row=card_top, column=col, value=label_txt)
+    lc.font = Font(name="Calibri", size=10, bold=True, color=WHITE)
+    lc.fill = PatternFill("solid", fgColor=NAVY)
+    lc.alignment = Alignment(horizontal="center", vertical="center")
+    svp.merge_cells(start_row=card_top + 1, start_column=col, end_row=card_top + 1, end_column=col + 1)
+    vc = svp.cell(row=card_top + 1, column=col, value=f"={ref}")
+    vc.font = Font(name="Calibri", size=16, bold=True, color=INK)
+    vc.number_format = fmt
+    vc.fill = PatternFill("solid", fgColor=LIGHT)
+    vc.alignment = Alignment(horizontal="center", vertical="center")
+    vc.border = box
+    svp.row_dimensions[card_top + 1].height = 26
+    vcoord = vc.coordinate
+    svp.conditional_formatting.add(vcoord, FormulaRule(formula=[f"NOT(ISNUMBER({vcoord}))"], fill=PatternFill("solid", fgColor=RED_BG)))
+    svp.conditional_formatting.add(vcoord, FormulaRule(formula=[f"ISNUMBER({vcoord})"], fill=PatternFill("solid", fgColor=GREEN_BG)))
+    col += 2
+
+svp.freeze_panes = "B4"
+for key, formula1 in (("includes_vat", '"TRUE,FALSE"'), ("haspo", '"TRUE,FALSE"'),
+                      ("fcs", '"none,component,unresolved,blended_only,invalid_direct"'),
+                      ("plan", '"present,absent"'), ("period", '"per_month,per_year"'),
+                      ("fcbasis", '"per_month,per_unit_per_month,per_visit"')):
+    dv = DataValidation(type="list", formula1=formula1, allow_blank=(key in ("includes_vat", "period")))
+    svp.add_data_validation(dv)
+    dv.add(svp.cell(row=ROWS_VP[key], column=3))
+print("12_VOLUME_PROFIT_SIMULATOR_OK")
+
+# ================================================================
+# SHEET: 13_VOLUME_PROFIT_PARITY_TEST
+# ================================================================
+pvp = wb.create_sheet("13_VOLUME_PROFIT_PARITY_TEST")
+pvp.sheet_view.showGridLines = False
+pvp.column_dimensions["A"].width = 2
+pvp.column_dimensions["B"].width = 36
+for col_letter in "CDEFGHI":
+    pvp.column_dimensions[col_letter].width = 17
+
+r = 2
+title_row(pvp, r, "13. Python Engine vs Excel Formula — Volume Profit Parity Test", span=8); r += 1
+pvp.merge_cells(start_row=r, start_column=2, end_row=r, end_column=9)
+c = pvp.cell(row=r, column=2, value=(
+    "각 케이스는 tests/test_volume_profit.py와 docs/features/volume_profit/SPEC.md의 규칙(per_order ESTIMATED, 음수 안전한계, "
+    "NOT_RUN/다중 컴포넌트 gate 순서, 기간 처리, 고정비 basis 제한 등)에 대응하며, Excel에 동일 입력값을 리터럴로 심어 "
+    "12_VOLUME_PROFIT_SIMULATOR와 같은 수식(build_volume_profit_formulas)으로 독립 재계산한 뒤, Python 참조값"
+    "(core/engine/modes/volume_profit.py 실행 결과, 빌드 시점에 고정)과 값·상태(ESTIMATED 포함)·모듈 상태·기간 basis를 "
+    "모두 비교합니다. 허용오차 0.01(비율 지표는 0.000001). 경고 코드(warnings)는 Excel에 대응 셀이 없어 비교하지 않습니다."
+))
+c.font = note_font
+c.alignment = Alignment(wrap_text=True, vertical="top")
+pvp.row_dimensions[r].height = 60
+r += 2
+
+VP_BASE = dict(
+    actual_price=35000, includes_vat=True, vat_rate=0.10, direct=13500, varfixed=3000, haspo=False,
+    ratenet=0, rategross=0.025, fc=2000000, fcbasis="per_month", fcs="component", fbc="consistent",
+    cc=1, plan="present", q=200, period="per_month",
+)
+_SIMPLE = dict(actual_price=1000, includes_vat=False, vat_rate=None, direct=400, varfixed=0,
+               rategross=0, fc=60000)
+
+
+def vp_case(name, **overrides):
+    case = dict(VP_BASE)
+    case.update(overrides)
+    case["name"] = name
+    return case
+
+
+PARITY_CASES_VP = [
+    vp_case("V1. Worked example (SPEC §14), per-unit costs"),
+    vp_case("V2. Same, per_order cost -> ESTIMATED", haspo=True),
+    vp_case("V3. Plan below break-even (negative margin of safety is OK)", q=100),
+    vp_case("V4. Plan exactly at break-even", **_SIMPLE, q=100),
+    vp_case("V5. Zero planned quantity (valid, rates NOT_APPLICABLE)", q=0),
+    vp_case("V6. Non-integer planned quantity", q=123.5),
+    vp_case("V7. Planned quantity blank -> UNKNOWN (break-even still computed)", q=None),
+    vp_case("V8. Negative planned quantity -> ERROR", q=-5),
+    vp_case("V9. Period basis blank -> UNKNOWN (never assumed monthly)", period=None),
+    vp_case("V10. Unsupported plan period -> ERROR", period="per_year"),
+    vp_case("V11. CMu < 0: loss, break-even NOT_APPLICABLE",
+            actual_price=1000, includes_vat=False, vat_rate=None, direct=1200, varfixed=0, rategross=0,
+            fc=50000, q=10),
+    vp_case("V12. CMu = 0, FC > 0",
+            actual_price=1000, includes_vat=False, vat_rate=None, direct=1000, varfixed=0, rategross=0,
+            fc=50000, q=10),
+    vp_case("V13. CMu = 0, FC = 0",
+            actual_price=1000, includes_vat=False, vat_rate=None, direct=1000, varfixed=0, rategross=0,
+            fc=0, q=10),
+    vp_case("V14. No fixed-cost item at all (FC confirmed 0)", fc=None, fcbasis="", fcs="none"),
+    vp_case("V15. Fixed-cost item exists, amount blank -> UNKNOWN", fc=None),
+    vp_case("V16. Shared fixed cost, unresolved allocation", fc=None, fcs="unresolved"),
+    vp_case("V17. Shared fixed cost, blended_only (UNKNOWN, not excluded)", fc=None, fcs="blended_only"),
+    vp_case("V18. Shared + direct invalid configuration", fc=None, fcs="invalid_direct"),
+    vp_case("V19. Fixed-cost basis other than per_month -> ERROR", fcbasis="per_unit_per_month"),
+    vp_case("V20. Inconsistent fixed-cost basis -> ERROR", fbc="inconsistent"),
+    vp_case("V21. Negative fixed-cost amount -> ERROR", fc=-10000),
+    vp_case("V22. Price blank (N UNKNOWN)", actual_price=None),
+    vp_case("V23. VAT-inclusive price, VAT rate blank (N UNKNOWN)", vat_rate=None),
+    vp_case("V24. Direct cost blank (cost UNKNOWN)", direct=None),
+    vp_case("V25. No sales_plan -> NOT_RUN", plan="absent"),
+    vp_case("V26. Multi-component -> ERROR gate", cc=2),
+    vp_case("V27. NOT_RUN gate beats multi-component gate", plan="absent", cc=2),
+    vp_case("V28. per_order + price blank (no ESTIMATED when nothing is computed)", haspo=True, actual_price=None),
+    vp_case("V29. per_order + CMu < 0 (loss is ESTIMATED, break-even NOT_APPLICABLE)",
+            haspo=True, actual_price=1000, includes_vat=False, vat_rate=None, direct=1200, varfixed=0,
+            rategross=0, fc=50000, q=10),
+    vp_case("V30. VAT-exclusive price with gross-payment fee",
+            actual_price=32000, includes_vat=False, vat_rate=0.10, rategross=0.05),
+]
+
+FIELD_ORDER_VP = ["actual_price", "includes_vat", "vat_rate", "direct", "varfixed", "haspo", "ratenet",
+                  "rategross", "fc", "fcbasis", "fcs", "fbc", "cc", "plan", "q", "period"]
+TOL_AMOUNT_VP = 0.01
+TOL_RATIO_VP = 0.000001
+
+
+def _vp_python_reference(case):
+    extra_components = None
+    if case["cc"] > 1:
+        extra_components = [{"component_id": "addon", "type": "one_time", "actual_price": 500,
+                              "currency": "KRW", "price_includes_vat": False}]
+    extra_fc_items = None
+    if case["fcs"] == "none":
+        fc_value = False
+    elif case["fcs"] == "component":
+        fc_value = case["fc"]
+        if case["fbc"] == "inconsistent":
+            extra_fc_items = [{"item_id": "fixed_ops_2", "label": "고정운영비(다른 기간)",
+                               "cost_category": "fixed_operating_cost", "amount": 20000, "rate": None,
+                               "currency": "KRW", "basis": "per_visit", "applies_to_component": "main"}]
+    else:
+        rule = {"unresolved": "by_component_revenue", "blended_only": "blended_only",
+                "invalid_direct": "direct"}[case["fcs"]]
+        fc_value = False
+        extra_fc_items = [{"item_id": "fixed_ops_shared", "label": "공유 고정운영비",
+                           "cost_category": "fixed_operating_cost", "amount": None, "rate": None,
+                           "currency": None, "basis": case["fcbasis"] or "per_month",
+                           "applies_to_component": "shared", "allocation_rule": rule}]
+    ci = make_client_input_vp(
+        actual_price=case["actual_price"], includes_vat=case["includes_vat"], vat_rate=case["vat_rate"],
+        direct_cost=case["direct"], variable_fixed_cost=case["varfixed"], per_order=case["haspo"],
+        net_sales_fee_rate=case["ratenet"], gross_payment_fee_rate=case["rategross"],
+        fixed_operating_cost=fc_value, fixed_operating_cost_basis=case["fcbasis"] or "per_month",
+        planned_quantity=case["q"], period_basis=case["period"],
+        has_sales_plan=(case["plan"] == "present"), extra_cost_items=extra_fc_items,
+        extra_components=extra_components,
+    )
+    return vp_reference(run_volume_profit(ci))
+
+
+for case in PARITY_CASES_VP:
+    (case["py_values"], case["py_statuses"], case["py_module"], case["py_basis"]) = _vp_python_reference(case)
+
+pass_cells_vp = []
+first_pass_row_vp = None
+last_pass_row_vp = None
+
+for case in PARITY_CASES_VP:
+    section_row(pvp, r, case["name"], span=8); r += 1
+    for i, h in enumerate(["Metric", "Excel Result", "Python Reference", "Difference", "PASS / FAIL",
+                           "Excel Status", "Python Status", "Status PASS"]):
+        cc_hdr = pvp.cell(row=r, column=2 + i, value=h)
+        cc_hdr.font = header_font
+        cc_hdr.fill = header_fill
+        cc_hdr.alignment = Alignment(horizontal="center")
+    r += 1
+
+    input_col = 13
+    local_row = r
+    li = {}
+    for j, field in enumerate(FIELD_ORDER_VP):
+        val = case.get(field)
+        if field in ("fcbasis",) and val is None:
+            val = ""
+        pvp.cell(row=local_row, column=input_col + j, value=val)
+        li[field] = f"${get_column_letter(input_col + j)}${local_row}"
+    result_col = input_col + len(FIELD_ORDER_VP)
+    cmap = {}
+    slot = result_col
+    for key in VP_HELPER_KEYS:
+        cmap[key] = (local_row, slot); slot += 1
+    for key in METRIC_KEYS_VP:
+        cmap[key] = (local_row, slot); slot += 1
+        cmap[f"{key}__status"] = (local_row, slot); slot += 1
+    cmap["module_status"] = (local_row, slot); slot += 1
+    cmap["analysis_period_basis"] = (local_row, slot); slot += 1
+    for col_idx in range(input_col, slot + 1):
+        pvp.column_dimensions[get_column_letter(col_idx)].hidden = True
+
+    refs_local = {k: li[k] for k in ("actual_price", "includes_vat", "vat_rate", "direct", "varfixed", "ratenet",
+                                      "rategross", "fc", "fcbasis", "fcs", "fbc", "cc", "q", "period", "plan", "haspo")}
+    refs_local["p"] = refs_local.pop("actual_price")
+    refs_local["incvat"] = refs_local.pop("includes_vat")
+    refs_local["v"] = refs_local.pop("vat_rate")
+    cells = build_volume_profit_formulas(pvp, cmap, refs_local)
+
+    for key in METRIC_KEYS_VP:
+        label(pvp, r, 2, METRIC_LABELS_VP[key])
+        excel_ref = cells["metrics"][key]
+        fmt = VP_FMT[key]
+        formula_cell(pvp, r, 3, f"={excel_ref}", fmt=fmt, bold=False)
+        py_val = case["py_values"][key]
+        pcv = pvp.cell(row=r, column=4, value=py_val)
+        pcv.border = box
+        pcv.alignment = Alignment(horizontal="right")
+        if isinstance(py_val, (int, float)):
+            pcv.number_format = fmt
+        py_cell = pcv.coordinate
+        formula_cell(pvp, r, 5, (
+            f'=IF(ISNUMBER({py_cell}),IF(ISNUMBER({excel_ref}),ABS({excel_ref}-{py_cell}),"N/A"),"N/A")'
+        ), fmt='0.000000', bold=False)
+        tol = TOL_RATIO_VP if fmt == "0.0%" else TOL_AMOUNT_VP
+        value_pass = formula_cell(pvp, r, 6, (
+            f'=IFERROR(IF(ISNUMBER({py_cell}),'
+            f'IF(ISNUMBER({excel_ref}),IF(ABS({excel_ref}-{py_cell})<={tol},"PASS","FAIL"),"FAIL"),'
+            f'IF(NOT(ISNUMBER({excel_ref})),IF({excel_ref}={py_cell},"PASS","FAIL"),"FAIL")),"FAIL")'
+        ), fmt="General", bold=True)
+        _vp_pass_fail_format(pvp, value_pass.coordinate)
+        first_pass_row_vp = first_pass_row_vp or r
+        last_pass_row_vp = r
+
+        status_ref = cells["status"][key]
+        formula_cell(pvp, r, 7, f"={status_ref}", fmt="General", bold=False)
+        py_status = pvp.cell(row=r, column=8, value=case["py_statuses"][key])
+        py_status.border = box
+        py_status.alignment = Alignment(horizontal="right")
+        status_pass = formula_cell(pvp, r, 9, f'=IF({status_ref}={py_status.coordinate},"PASS","FAIL")',
+                                   fmt="General", bold=True)
+        _vp_pass_fail_format(pvp, status_pass.coordinate)
+        r += 1
+
+    for label_txt, excel_ref, py_val in (
+        ("Module Status", cells["module_status"], case["py_module"]),
+        ("Analysis Period Basis", cells["analysis_period_basis"], case["py_basis"]),
+    ):
+        label(pvp, r, 2, label_txt)
+        formula_cell(pvp, r, 3, f"={excel_ref}", fmt="General", bold=False)
+        pc = pvp.cell(row=r, column=4, value=py_val)
+        pc.border = box
+        pc.alignment = Alignment(horizontal="right")
+        mp = formula_cell(pvp, r, 6, f'=IF({excel_ref}={pc.coordinate},"PASS","FAIL")', fmt="General", bold=True)
+        _vp_pass_fail_format(pvp, mp.coordinate)
+        last_pass_row_vp = r
+        r += 1
+
+    label(pvp, r, 2, "Self-Check: |MoS qty × CMu − Operating Profit| ≤ tol")
+    mos_ref = cells["metrics"]["margin_of_safety_quantity"]
+    op_ref = cells["metrics"]["operating_profit"]
+    cmu_ref = pvp.cell(row=local_row, column=cmap["_cmu"][1]).coordinate
+    selfcheck = formula_cell(pvp, r, 3, (
+        f'=IF(OR(NOT(ISNUMBER({mos_ref})),NOT(ISNUMBER({cmu_ref})),NOT(ISNUMBER({op_ref}))),"SKIP",'
+        f'IF(ABS({mos_ref}*{cmu_ref}-{op_ref})<=0.01,"PASS","FAIL"))'
+    ), fmt="General", bold=False)
+    pvp.merge_cells(start_row=r, start_column=3, end_row=r, end_column=4)
+    selfcheck.alignment = Alignment(horizontal="left")
+    sp = formula_cell(pvp, r, 6, f'=IF({selfcheck.coordinate}="FAIL","FAIL","PASS")', fmt="General", bold=True)
+    _vp_pass_fail_format(pvp, sp.coordinate)
+    last_pass_row_vp = r
+    r += 2
+
+section_row(pvp, r, f"Overall ({len(PARITY_CASES_VP)}/{len(PARITY_CASES_VP)} scenarios live Excel evaluation)", span=2); r += 1
+label(pvp, r, 2, "All values/statuses/module/basis/self-check PASS?")
+oc_vp = formula_cell(pvp, r, 3, (
+    f'=IF(COUNTIF(F{first_pass_row_vp}:I{last_pass_row_vp},"FAIL")=0,"ALL PASS","SOME FAILED")'
+), fmt="General", bold=True)
+pvp.conditional_formatting.add(oc_vp.coordinate, FormulaRule(formula=[f'{oc_vp.coordinate}="SOME FAILED"'], fill=PatternFill("solid", fgColor=RED_BG)))
+pvp.conditional_formatting.add(oc_vp.coordinate, FormulaRule(formula=[f'{oc_vp.coordinate}="ALL PASS"'], fill=PatternFill("solid", fgColor=GREEN_BG)))
+pvp.freeze_panes = "B4"
+print("13_VOLUME_PROFIT_PARITY_TEST_OK")
+
+OUT_PATH = ROOT / "tools" / "excel_simulator" / "Pricing_Harness_Excel_Simulator_v0.6.xlsx"
 wb.save(OUT_PATH)
 print("SAVED:", OUT_PATH)

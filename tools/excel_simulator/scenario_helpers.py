@@ -267,3 +267,66 @@ METRIC_LABELS_BEP = {
     "fixed_operating_cost": "Fixed Operating Cost (FC)",
     "break_even_quantity_exact": "Break-Even Quantity (Q_BEP)",
 }
+
+
+def make_client_input_vp(actual_price, includes_vat, vat_rate, direct_cost, variable_fixed_cost,
+                         per_order, net_sales_fee_rate, gross_payment_fee_rate,
+                         fixed_operating_cost, fixed_operating_cost_basis="per_month",
+                         planned_quantity=None, period_basis="per_month", has_sales_plan=True,
+                         currency="KRW", extra_cost_items=None, extra_components=None):
+    """Volume Profit Client Input builder — the BEP builder plus a `sales_plan` and a switch for
+    whether the lumped fixed-amount variable cost is a per_order item (the Excel flat model has
+    one such cell, so `per_order` stands in for "some contributing cost item has basis
+    per_order", which is what makes Volume Profit's quantity-dependent metrics ESTIMATED).
+    `has_sales_plan=False` omits sales_plan entirely (module NOT_RUN)."""
+    ci = make_client_input_bep(
+        actual_price, includes_vat, vat_rate, direct_cost, variable_fixed_cost,
+        net_sales_fee_rate, gross_payment_fee_rate, fixed_operating_cost,
+        fixed_operating_cost_basis=fixed_operating_cost_basis, currency=currency,
+        extra_cost_items=extra_cost_items, extra_components=extra_components,
+    )
+    ci["schema_version"] = "1.2"
+    ci["case_id"] = "excel_qa_case_vp"
+    for item in ci["costs"]["items"]:
+        if item["item_id"] == "var_fixed":
+            item["basis"] = "per_order" if per_order else "per_unit"
+    if has_sales_plan:
+        ci["sales_plan"] = {"planned_quantity": planned_quantity, "period_basis": period_basis}
+    return ci
+
+
+METRIC_KEYS_VP = [
+    "planned_quantity", "total_net_sales_ex_vat", "total_contribution_margin", "operating_profit",
+    "operating_profit_rate", "break_even_quantity_exact", "margin_of_safety_quantity",
+    "margin_of_safety_rate",
+]
+
+METRIC_LABELS_VP = {
+    "planned_quantity": "Planned Quantity (units)",
+    "total_net_sales_ex_vat": "Total Net Sales ex VAT",
+    "total_contribution_margin": "Total Contribution Margin",
+    "operating_profit": "Operating Profit",
+    "operating_profit_rate": "Operating Profit Rate",
+    "break_even_quantity_exact": "Break-Even Quantity (Q_BEP)",
+    "margin_of_safety_quantity": "Margin of Safety Quantity",
+    "margin_of_safety_rate": "Margin of Safety Rate",
+}
+
+
+def vp_reference(result):
+    """Flattens run_volume_profit()'s result into what an Excel result/status cell pair holds:
+    ({metric: value-or-status-text}, {metric: status}, module_status, analysis_period_basis).
+    A metric whose status is OK or ESTIMATED is its numeric value; any other status is that
+    status string itself (the Excel sentinel convention). NOT_RUN and the multi-component gate
+    produce no per-component block in Python, so every metric reads as the module-level status
+    (NOT_RUN / ERROR) and the basis is blank."""
+    if not result["per_component"]:
+        sentinel = result["status"]
+        return ({k: sentinel for k in METRIC_KEYS_VP}, {k: sentinel for k in METRIC_KEYS_VP},
+                result["status"], "")
+    m = next(iter(result["per_component"].values()))
+    values = {k: (m[k]["value"] if m[k]["status"] in ("OK", "ESTIMATED") else m[k]["status"])
+              for k in METRIC_KEYS_VP}
+    statuses = {k: m[k]["status"] for k in METRIC_KEYS_VP}
+    return values, statuses, result["status"], m["analysis_period_basis"] or ""
+

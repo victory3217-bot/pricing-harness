@@ -36,7 +36,7 @@ from core.engine.modes.mode_c import run_mode_c  # noqa: E402
 from scenario_helpers import make_client_input_c, METRIC_KEYS_C  # noqa: E402
 
 SOFFICE = r"C:\Program Files\LibreOffice\program\soffice.exe"
-BASE_WB = HERE / "Pricing_Harness_Excel_Simulator_v0.5.xlsx"
+BASE_WB = HERE / "Pricing_Harness_Excel_Simulator_v0.6.xlsx"
 SCRATCH = HERE / "_qa_scratch_mode_c"
 
 _label_to_row = {}

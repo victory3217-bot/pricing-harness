@@ -33,7 +33,7 @@ from core.engine.modes.mode_a import run_mode_a  # noqa: E402
 from scenario_helpers import make_client_input, METRIC_KEYS  # noqa: E402
 
 SOFFICE = r"C:\Program Files\LibreOffice\program\soffice.exe"
-BASE_WB = HERE / "Pricing_Harness_Excel_Simulator_v0.5.xlsx"
+BASE_WB = HERE / "Pricing_Harness_Excel_Simulator_v0.6.xlsx"
 SCRATCH = HERE / "_qa_scratch"
 
 # 01_SIMULATOR input cell rows (must match build_workbook.py's layout)

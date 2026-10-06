@@ -42,7 +42,7 @@ sys.path.insert(0, str(HERE))
 from core.engine.scenario_compare import run_scenario_compare  # noqa: E402
 
 SOFFICE = r"C:\Program Files\LibreOffice\program\soffice.exe"
-BASE_WB = HERE / "Pricing_Harness_Excel_Simulator_v0.5.xlsx"
+BASE_WB = HERE / "Pricing_Harness_Excel_Simulator_v0.6.xlsx"
 SCRATCH = HERE / "_qa_scratch_sc"
 
 ERROR_STRINGS = {"#DIV/0!", "#VALUE!", "#N/A", "#NAME?", "#REF!", "#NULL!", "#NUM!"}
@@ -274,7 +274,7 @@ def main():
     # 5. workbook open/save sanity
     try:
         wb2 = openpyxl.load_workbook(BASE_WB)
-        assert len(wb2.sheetnames) == 12
+        assert len(wb2.sheetnames) == 14
         wb2.save(BASE_WB)
         print(f"Workbook open/save OK, sheet count: {len(wb2.sheetnames)}")
     except Exception as e:
