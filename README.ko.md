@@ -272,8 +272,8 @@ python core/schemas/validate_examples.py  # 제공된 모든 example의 schema v
 현재 이 저장소 상태 기준 audited baseline(영구적인 보장이 아니며, 실제로 체크아웃한 commit에서
 다시 실행해 확인해야 합니다):
 
-- `pytest`: 160 passed
-- schema validation: ALL 13 CHECKS PASSED
+- `pytest`: 188 passed
+- schema validation: ALL 14 CHECKS PASSED
 - MODE A / MODE B Excel QA: PASS
 - MODE C Excel QA: 20/20 PASS
 - BEP Excel QA: PASS
@@ -306,9 +306,9 @@ Pricing Harness에는 네 개의 독립적인 버전 축이 있습니다 — 각
 | 축 | 현재 값 | Source of truth | 추적하는 대상 |
 |---|---|---|---|
 | **Product release** | `0.1.0-beta.3` | root [`VERSION`](VERSION) 파일, git tag `v0.1.0-beta.3` | 어느 시점의 Pricing Harness 전체(Python Core + schema + Excel Simulator + 문서). 이 sanitized 공개 저장소의 release identity이며 — 현재 성숙도는 **Limited/Beta**입니다. |
-| Python engine marker | `0.4.0` | [`core/engine/result_builder.py`](core/engine/result_builder.py)의 `ENGINE_VERSION` | 계산 엔진 자체의 내부 iteration으로, 생성되는 모든 Analysis Result의 `source.engine_version` 필드에 기록됩니다. |
+| Python engine marker | `0.5.0` | [`core/engine/result_builder.py`](core/engine/result_builder.py)의 `ENGINE_VERSION` | 계산 엔진 자체의 내부 iteration으로, 생성되는 모든 Analysis Result의 `source.engine_version` 필드에 기록됩니다. |
 | Excel Simulator artifact | `v0.5` | workbook 파일명 자체, `Pricing_Harness_Excel_Simulator_v0.5.xlsx` | Python engine이나 product release와 무관한, 이 특정 Excel build 자체의 iteration. |
-| Schema / data contract | `1.1` | 모든 Client Input / Analysis Result / Scenario Compare 문서 안의 `schema_version` 필드 | 시스템을 흐르는 JSON 문서의 *모양(shape)* — 소프트웨어 릴리스가 아니라 데이터 호환성 버전입니다. |
+| Schema / data contract | `1.2` | 모든 Client Input / Analysis Result / Scenario Compare 문서 안의 `schema_version` 필드 | 시스템을 흐르는 JSON 문서의 *모양(shape)* — 소프트웨어 릴리스가 아니라 데이터 호환성 버전입니다. `1.2`는 선택 필드 `sales_plan`(Client Input)과 `volume_profit`(Analysis Result)를 추가했으며, 기존 `1.1` 문서는 모두 그대로 유효합니다. |
 
 이 네 숫자는 설계상 시간이 지나며 서로 달라집니다: schema migration, engine 전용 공식 수정,
 Excel 전용 build는 각각 다른 축을 바꾸지 않고도 일어날 수 있습니다. product release 버전은
