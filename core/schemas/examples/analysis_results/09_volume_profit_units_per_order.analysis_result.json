@@ -1,9 +1,9 @@
 {
   "schema_version": "1.3",
   "source": {
-    "client_id": "sample_co_zeta",
-    "case_id": "sample_case_zeta_bep_001",
-    "client_input_ref": "core\\schemas\\examples\\valid\\07_bep.json",
+    "client_id": "sample_co_theta",
+    "case_id": "sample_case_theta_volume_profit_upo_001",
+    "client_input_ref": "core\\schemas\\examples\\valid\\09_volume_profit_units_per_order.json",
     "engine_version": "0.6.0",
     "calculated_at": "2026-10-08T01:16:37+09:00"
   },
@@ -287,9 +287,61 @@
     "warnings": []
   },
   "volume_profit": {
-    "status": "NOT_RUN",
-    "per_component": {},
-    "warnings": []
+    "status": "OK",
+    "per_component": {
+      "main": {
+        "analysis_period_basis": "per_month",
+        "planned_quantity": {
+          "value": 150,
+          "status": "OK",
+          "unit": "units"
+        },
+        "total_net_sales_ex_vat": {
+          "value": 3000000,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "total_contribution_margin": {
+          "value": 1650000.0,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "operating_profit": {
+          "value": 650000.0,
+          "status": "OK",
+          "unit": "KRW"
+        },
+        "operating_profit_rate": {
+          "value": 0.21666666666666667,
+          "status": "OK",
+          "unit": "ratio"
+        },
+        "break_even_quantity_exact": {
+          "value": 90.9090909090909,
+          "status": "OK",
+          "unit": "units"
+        },
+        "margin_of_safety_quantity": {
+          "value": 59.09090909090909,
+          "status": "OK",
+          "unit": "units"
+        },
+        "margin_of_safety_rate": {
+          "value": 0.393939393939394,
+          "status": "OK",
+          "unit": "ratio"
+        }
+      }
+    },
+    "warnings": [
+      {
+        "code": "UNITS_PER_ORDER_APPLIED",
+        "severity": "info",
+        "metric_path": "volume_profit.per_component.main.total_contribution_margin",
+        "dependency_paths": [],
+        "message": "per_order 비용을 주문당 평균 2개로 나눠 개당 비용으로 환산했습니다. MODE A와 BEP는 per_order 비용을 개당 비용으로 취급하므로(주문당 1개 가정) 그 결과와 달라질 수 있습니다."
+      }
+    ]
   },
   "meta": {
     "missing_input_paths": [

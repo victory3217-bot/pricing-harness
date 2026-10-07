@@ -4,7 +4,7 @@ Volume Profit — operating profit and margin of safety at a planned sales quant
 
 Pure calculation: a Client Input with a `sales_plan` -> per-component total net sales, total
 contribution margin, operating profit, break-even quantity and margin of safety. Formulas, status
-rules and decisions follow docs/features/volume_profit/SPEC.md (DRAFT v0.1) exactly — do not
+rules and decisions follow docs/features/volume_profit/SPEC.md (DRAFT v0.2) exactly — do not
 diverge from it without updating that SPEC first.
 
 Question this module answers: "if `planned_quantity` units are sold in the analysis period, what
@@ -12,7 +12,8 @@ is left after fixed operating cost, and how far is that plan from break-even?"
 
 Design (SPEC.md section 2/5): takes only `client_input`, like run_mode_a/b/c/bep, and recomputes
 CMu and FC itself through core/engine/economics.py — it never reads a mode_a or bep result
-object. The per-unit economics are MODE A's, unchanged; this module adds only the quantity.
+object. The per-unit economics are MODE A's; this module adds the quantity and one deliberate
+exception, units_per_order (below), so with units_per_order != 1 its CMu differs from MODE A's.
 
 Every metric is judged from four *leaves*, never from another output metric's status:
     Q    planned quantity (+ its period)        owner metric: planned_quantity
@@ -32,10 +33,13 @@ may be negative with status OK/ESTIMATED (a loss / a plan below break-even — B
 warning), never clamped. break_even_quantity_exact keeps BEP's rule exactly (NOT_APPLICABLE for
 CMu <= 0, never a raw 0 or negative number).
 
-per_order cost items are multiplied by a unit count (SPEC.md section 11): when any contributing
-item has basis per_order, every metric that depends on COST is ESTIMATED, with an
-ASSUMES_ONE_UNIT_PER_ORDER warning. ESTIMATED does not lower module status
-(common.aggregate_module_status only looks at ERROR and UNKNOWN).
+per_order cost items are paid once per order but multiplied here by a unit count (SPEC.md section
+11). sales_plan.units_per_order resolves that: per_order amounts are divided by it, the metrics stay
+OK, and an info warning UNITS_PER_ORDER_APPLIED notes that MODE A and BEP still treat per_order
+costs as per-unit. When units_per_order is omitted and a per_order item exists, one unit per order is
+assumed: every metric that depends on COST is ESTIMATED, with an ASSUMES_ONE_UNIT_PER_ORDER
+warning. A value that is not a number > 0 is an ERROR (INVALID_UNITS_PER_ORDER). ESTIMATED does not
+lower module status (common.aggregate_module_status only looks at ERROR and UNKNOWN).
 
 Not implemented, by design (SPEC.md section 9): the period-mismatch cross-check between
 sales_plan.period_basis and the fixed-cost basis. With per_month the only supported value on both
@@ -106,6 +110,19 @@ def _quantity_leaf(plan):
     return {**_leaf(OK), "value": q}
 
 
+def _units_per_order(plan):
+    """(value, error_leaf). value None = not provided: the caller assumes 1 unit per order and
+    marks the dependent metrics ESTIMATED (SPEC.md section 11). A provided value that is not a
+    number > 0 (including NaN and booleans) is an error leaf instead."""
+    u = plan.get("units_per_order")
+    if u is None:
+        return None, None
+    if isinstance(u, bool) or not isinstance(u, (int, float)) or not u > 0:
+        return None, _leaf(ERROR, ["sales_plan.units_per_order"], "INVALID_UNITS_PER_ORDER",
+                           "주문당 판매 수량(units_per_order)은 0보다 큰 숫자여야 합니다.")
+    return u, None
+
+
 def _net_sales_leaf(client_input, component):
     price_value, price_status, price_deps = price_converted(component, client_input["fx"])
     if price_status != OK:
@@ -126,15 +143,18 @@ def _net_sales_leaf(client_input, component):
     return leaf, (n_value, n_status, n_deps), (g_value, g_status, g_deps)
 
 
-def _cost_leaf(client_input, component, revenue_ex_vat, gross_payment):
+def _cost_leaf(client_input, component, revenue_ex_vat, gross_payment, units_per_order=None):
     """UNKNOWN only because net sales (N) is itself not OK is marked `via: "N"` with no code of its
     own: the root cause is already warned on N's owner metric, and a rate-based cost item
-    (e.g. a PG fee on gross payment) cannot be computed without a price either."""
+    (e.g. a PG fee on gross payment) cannot be computed without a price either.
+
+    `units_per_order` (None = not provided -> 1) divides every per_order amount (SPEC.md section 11)."""
     cid = component["component_id"]
+    per_order_units = 1.0 if units_per_order is None else units_per_order
     direct_total, direct_status, direct_deps = sum_cost_category(
-        client_input, cid, DIRECT, revenue_ex_vat, gross_payment)
+        client_input, cid, DIRECT, revenue_ex_vat, gross_payment, per_order_units)
     variable_total, variable_status, variable_deps = sum_cost_category(
-        client_input, cid, VARIABLE, revenue_ex_vat, gross_payment)
+        client_input, cid, VARIABLE, revenue_ex_vat, gross_payment, per_order_units)
 
     error_deps, unknown_deps = [], []
     for status, deps in ((direct_status, direct_deps), (variable_status, variable_deps)):
@@ -193,12 +213,15 @@ def compute_component(client_input, component, plan):
 
     q = _quantity_leaf(plan)
     n, revenue_ex_vat, gross_payment = _net_sales_leaf(client_input, component)
-    cost = _cost_leaf(client_input, component, revenue_ex_vat, gross_payment)
+    units, units_error = _units_per_order(plan)
+    cost = units_error or _cost_leaf(client_input, component, revenue_ex_vat, gross_payment, units)
     fc, period_basis = _fixed_cost_leaf(client_input, cid)
     leaves = {"Q": q, "N": n, "COST": cost, "FC": fc}
     owner_path = {"Q": path["planned_quantity"], "N": path["total_net_sales_ex_vat"],
                   "COST": path["total_contribution_margin"], "FC": path["operating_profit"]}
-    assumes_per_order = cost["status"] == OK and _has_per_order_cost(client_input, cid)
+    has_per_order = cost["status"] == OK and _has_per_order_cost(client_input, cid)
+    assumes_per_order = has_per_order and units is None
+    applied_units = has_per_order and units is not None and units != 1
 
     # Leaf values exist only when that leaf is OK; a metric's value_fn runs only when every leaf
     # it depends on is OK, so it never sees a missing value.
@@ -315,6 +338,11 @@ def compute_component(client_input, component, plan):
             "ASSUMES_ONE_UNIT_PER_ORDER", "warning", path["total_contribution_margin"], [],
             "per_order 비용을 주문당 1개 판매로 가정했습니다. 주문당 구매 수량이 1개보다 크면 비용이 "
             "과대 계상되고 영업이익이 과소 계상됩니다."))
+    if applied_units and metrics["total_contribution_margin"]["status"] == OK:
+        warnings.append(warn(
+            "UNITS_PER_ORDER_APPLIED", "info", path["total_contribution_margin"], [],
+            f"per_order 비용을 주문당 평균 {units:g}개로 나눠 개당 비용으로 환산했습니다. MODE A와 BEP는 "
+            "per_order 비용을 개당 비용으로 취급하므로(주문당 1개 가정) 그 결과와 달라질 수 있습니다."))
 
     return {"analysis_period_basis": period_basis, **metrics}, warnings
 

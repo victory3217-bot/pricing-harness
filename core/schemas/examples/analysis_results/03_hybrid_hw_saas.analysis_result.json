@@ -1,11 +1,11 @@
 {
-  "schema_version": "1.2",
+  "schema_version": "1.3",
   "source": {
     "client_id": "sample_co_gamma",
     "case_id": "sample_case_gamma_001",
     "client_input_ref": "core\\schemas\\examples\\valid\\03_hybrid_hw_saas.json",
-    "engine_version": "0.5.0",
-    "calculated_at": "2026-10-07T00:20:01+09:00"
+    "engine_version": "0.6.0",
+    "calculated_at": "2026-10-08T01:16:37+09:00"
   },
   "currency": {
     "reporting": "USD"

@@ -85,8 +85,15 @@ def codes(result):
     return [w["code"] for w in result["warnings"]]
 
 
-def plan(q, period="per_month"):
-    return {"planned_quantity": q, "period_basis": period}
+_OMIT = object()
+
+
+def plan(q, period="per_month", units=_OMIT):
+    """`units` is sales_plan.units_per_order; the default omits the key, None sends an explicit null."""
+    p = {"planned_quantity": q, "period_basis": period}
+    if units is not _OMIT:
+        p["units_per_order"] = units
+    return p
 
 
 # --- worked example (SPEC §14) --------------------------------------------------------------------
@@ -328,7 +335,7 @@ def test_build_analysis_result_includes_volume_profit_and_validates():
                make_input(items=default_items(fc_basis="per_visit"))):
         result = build_analysis_result(ci, client_input_ref="unit_test")
         assert list(validator.iter_errors(result)) == []
-        assert result["schema_version"] == "1.2"
+        assert result["schema_version"] == "1.3"
         assert "volume_profit" in result
 
 
@@ -343,3 +350,118 @@ def test_missing_input_paths_include_sales_plan_but_not_own_result_paths():
     paths = result["meta"]["missing_input_paths"]
     assert "sales_plan.planned_quantity" in paths
     assert not any(p.startswith("volume_profit.") for p in paths)
+
+
+# --- units_per_order (SPEC §3, §11) ---------------------------------------------------------------
+N_EX = 35000 / 1.1
+PG_FEE = 0.025 * 35000
+
+
+def cmu_with_units(u):
+    """CMu of the standard fixture when the 3,000 per_order shipping is spread over u units."""
+    return N_EX - 13500 - PG_FEE - 3000 / u
+
+
+def metric_statuses(c):
+    return {k: m["status"] for k, m in c.items() if k != "analysis_period_basis"}
+
+
+def test_units_per_order_divides_per_order_costs_and_keeps_metrics_ok():
+    result, c = run(make_input(plan=plan(200, units=2)))
+    cmu = cmu_with_units(2)
+    assert approx(c["total_contribution_margin"]["value"], cmu * 200)
+    assert approx(c["operating_profit"]["value"], cmu * 200 - 2_000_000)
+    assert approx(c["operating_profit"]["value"], 1_188_636.3636)  # SPEC §14 example B
+    assert approx(c["break_even_quantity_exact"]["value"], 2_000_000 / cmu)
+    assert approx(c["margin_of_safety_quantity"]["value"], 200 - 2_000_000 / cmu)
+    assert set(metric_statuses(c).values()) == {"OK"}  # nothing is assumed any more
+    assert "ASSUMES_ONE_UNIT_PER_ORDER" not in codes(result)
+    note = [w for w in result["warnings"] if w["code"] == "UNITS_PER_ORDER_APPLIED"]
+    assert len(note) == 1 and note[0]["severity"] == "info"
+    assert "MODE A" in note[0]["message"] and "BEP" in note[0]["message"]
+    assert result["status"] == "OK"
+
+
+def test_units_per_order_does_not_touch_rate_based_costs_or_fixed_cost():
+    # Only the 3,000 shipping moves; the 2.5 % PG fee, direct costs and the 2,000,000 fixed cost do not.
+    _, base = run(make_input(plan=plan(200, units=1)))
+    _, two = run(make_input(plan=plan(200, units=2)))
+    delta = two["total_contribution_margin"]["value"] - base["total_contribution_margin"]["value"]
+    assert approx(delta, (3000 - 1500) * 200)
+    assert two["total_net_sales_ex_vat"]["value"] == base["total_net_sales_ex_vat"]["value"]
+
+
+def test_units_per_order_of_one_equals_the_per_unit_case_with_no_warning():
+    explicit_one, c1 = run(make_input(plan=plan(200, units=1)))
+    per_unit, c0 = run(make_input(items=default_items(shipping_basis="per_unit")))
+    for key in c0:
+        assert c1[key] == c0[key], key
+    assert metric_statuses(c1) == metric_statuses(c0)
+    assert explicit_one["warnings"] == [] and per_unit["warnings"] == []
+
+
+def test_units_per_order_omitted_or_null_keeps_the_one_unit_assumption():
+    for p in (plan(200), plan(200, units=None)):
+        result, c = run(make_input(plan=p))
+        assert c["operating_profit"]["status"] == "ESTIMATED"
+        assert "ASSUMES_ONE_UNIT_PER_ORDER" in codes(result)
+        assert "UNITS_PER_ORDER_APPLIED" not in codes(result)
+        assert approx(c["operating_profit"]["value"], cmu_with_units(1) * 200 - 2_000_000)
+
+
+def test_units_per_order_accepts_a_non_integer_average():
+    _, c = run(make_input(plan=plan(200, units=1.5)))
+    assert approx(c["operating_profit"]["value"], cmu_with_units(1.5) * 200 - 2_000_000)
+
+
+def test_units_per_order_has_no_effect_without_a_per_order_cost():
+    items = default_items(shipping_basis="per_unit")
+    with_units, c_u = run(make_input(items=items, plan=plan(200, units=5)))
+    without, c_n = run(make_input(items=items, plan=plan(200)))
+    assert c_u == c_n
+    assert with_units["warnings"] == [] and without["warnings"] == []
+
+
+def test_units_per_order_also_divides_per_order_direct_costs():
+    items = [
+        cost("material", "product_service_direct_cost", 12000),
+        cost("packaging", "product_service_direct_cost", 1500, basis="per_order"),
+        cost("fixed_ops", "fixed_operating_cost", 2_000_000, basis="per_month"),
+    ]
+    _, c = run(make_input(items=items, plan=plan(100, units=3)))
+    assert approx(c["total_contribution_margin"]["value"], (N_EX - 12000 - 1500 / 3) * 100)
+    assert c["total_contribution_margin"]["status"] == "OK"
+
+
+def test_invalid_units_per_order_is_an_error_even_without_the_validator():
+    for bad in (0, -1, "2", True, float("nan")):
+        result, c = run(make_input(plan=plan(200, units=bad)), validate=False)
+        assert result["status"] == "ERROR", bad
+        assert "INVALID_UNITS_PER_ORDER" in codes(result), bad
+        leaf = [w for w in result["warnings"] if w["code"] == "INVALID_UNITS_PER_ORDER"][0]
+        assert leaf["dependency_paths"] == ["sales_plan.units_per_order"]
+        assert leaf["metric_path"].endswith("total_contribution_margin")
+        assert c["total_contribution_margin"]["status"] == "ERROR"
+        assert c["planned_quantity"]["status"] == "OK"        # the quantity itself is fine
+        assert c["total_net_sales_ex_vat"]["status"] == "OK"  # and so is revenue
+
+
+def test_client_input_schema_validates_units_per_order():
+    assert validate_client_input(make_input(plan=plan(10, units=2))) == []
+    assert validate_client_input(make_input(plan=plan(10, units=1.5))) == []
+    assert validate_client_input(make_input(plan=plan(10, units=None))) == []
+    assert validate_client_input(make_input(plan=plan(10, units=0)))      # must be > 0
+    assert validate_client_input(make_input(plan=plan(10, units=-1)))
+    assert validate_client_input(make_input(plan=plan(10, units="2")))    # must be a number
+
+
+def test_other_modules_keep_treating_per_order_as_per_unit_in_the_same_result():
+    result = build_analysis_result(make_input(plan=plan(200, units=2)), client_input_ref="unit_test")
+    bep_q = result["bep"]["per_component"]["main"]["break_even_quantity_exact"]["value"]
+    mode_a_cm = result["mode_a"]["per_component"]["main"]["contribution_margin"]["value"]
+    vp = result["volume_profit"]["per_component"]["main"]
+    assert approx(mode_a_cm, cmu_with_units(1))                 # MODE A: one unit per order
+    assert approx(bep_q, 2_000_000 / cmu_with_units(1))         # BEP: same assumption
+    assert approx(vp["break_even_quantity_exact"]["value"], 2_000_000 / cmu_with_units(2))
+    assert vp["break_even_quantity_exact"]["value"] < bep_q     # the documented divergence (SPEC §11)
+    assert list(jsonschema.Draft7Validator(ANALYSIS_RESULT_SCHEMA).iter_errors(result)) == []

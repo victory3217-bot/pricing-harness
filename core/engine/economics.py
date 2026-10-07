@@ -54,10 +54,17 @@ def price_converted(component, fx, price_field="actual_price"):
     return value, OK, []
 
 
-def sum_cost_category(client_input, component_id, category, revenue_ex_vat, gross_payment):
+def sum_cost_category(client_input, component_id, category, revenue_ex_vat, gross_payment,
+                      per_order_units=1.0):
     """
     Sum every cost item in `category` that applies to `component_id` (directly, or shared
     with a resolvable allocation). Returns (value, status, dependency_paths).
+
+    `per_order_units` divides the amount of every basis == "per_order" item, converting a cost
+    that is paid once per order into a per-unit figure (Volume Profit's `units_per_order`,
+    docs/features/volume_profit/SPEC.md section 11). The default 1.0 leaves every amount
+    untouched, which is what MODE A and BEP rely on; rate-based and per_unit items are never
+    divided.
 
     A category with zero matching items is a confirmed 0 (nothing to sum), not UNKNOWN —
     there is no missing data, just no cost of that kind assigned to this component.
@@ -111,7 +118,7 @@ def sum_cost_category(client_input, component_id, category, revenue_ex_vat, gros
             if status != OK:
                 deps.append(dep or f"costs.items[{item['item_id']}].amount")
                 continue
-            total += value
+            total += value / per_order_units if item["basis"] == "per_order" else value
         elif rate is not None:
             basis = item["basis"]
             if basis == "rate_of_net_sales":

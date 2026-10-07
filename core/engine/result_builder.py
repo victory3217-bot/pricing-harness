@@ -14,7 +14,7 @@ from core.engine.modes.mode_b import run_mode_b
 from core.engine.modes.mode_c import run_mode_c
 from core.engine.modes.volume_profit import run_volume_profit
 
-ENGINE_VERSION = "0.5.0"
+ENGINE_VERSION = "0.6.0"
 
 
 def build_analysis_result(client_input: dict, client_input_ref: str) -> dict:
@@ -35,7 +35,7 @@ def build_analysis_result(client_input: dict, client_input_ref: str) -> dict:
     })
 
     return {
-        "schema_version": "1.2",
+        "schema_version": "1.3",
         "source": {
             "client_id": client_input["client_id"],
             "case_id": client_input["case_id"],
