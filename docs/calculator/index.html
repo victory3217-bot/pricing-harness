@@ -237,77 +237,92 @@
     border-top: 1px solid var(--border); padding-top: 14px;
   }
   footer.note code{ font-family: var(--font-mono); background: var(--surface-sunken); padding: 1px 5px; border-radius: 4px; }
+
+  .lang-switch{
+    margin-left: auto; display: inline-flex; border: 1px solid var(--border);
+    border-radius: 999px; overflow: hidden; background: var(--surface);
+  }
+  .lang-switch button{
+    font: inherit; font-size: 12px; font-weight: 600; padding: 5px 13px; border: 0;
+    background: transparent; color: var(--text-muted); cursor: pointer;
+  }
+  .lang-switch button[aria-pressed="true"]{ background: var(--accent-soft); color: var(--accent-strong); }
+  .lang-switch button:hover:not([aria-pressed="true"]){ color: var(--text); }
 </style>
 </head>
 <body>
 <div class="page">
   <header class="top">
-    <h1>가격 진단 계산기</h1>
-    <div class="sub">단일 상품의 판매가·원가 구조를 입력하면 현재가 진단, 목표가, 허용원가, 손익분기점을 즉시 계산합니다.</div>
-    <span class="proto-chip">프로토타입 · Python Core 미러링</span>
+    <h1 data-i18n="title"></h1>
+    <div class="sub" data-i18n="sub"></div>
+    <span class="proto-chip" data-i18n="chip"></span>
+    <div class="lang-switch" role="group" aria-label="Language / 언어">
+      <button type="button" data-lang-btn="ko" aria-pressed="true" lang="ko">한국어</button>
+      <button type="button" data-lang-btn="en" aria-pressed="false" lang="en">English</button>
+    </div>
   </header>
 
   <div class="layout">
     <!-- INPUT PANEL -->
     <div class="panel" id="input-panel">
       <div class="panel-section">
-        <h2>판매가 &amp; 부가세</h2>
+        <h2 data-i18n="sec_price"></h2>
         <div class="field">
-          <label for="price">실제 판매가 (KRW)</label>
+          <label for="price" data-i18n="lbl_price"></label>
           <input type="number" id="price" value="35000" min="0" step="100">
         </div>
         <div class="row2">
           <div class="field">
-            <label for="vat">부가세율 (%)</label>
+            <label for="vat" data-i18n="lbl_vat"></label>
             <input type="number" id="vat" value="10" min="0" max="100" step="0.5">
           </div>
           <div class="field">
             <label>&nbsp;</label>
-            <div class="toggle-row"><input type="checkbox" id="includesVat" checked><label for="includesVat">위 가격은 VAT 포함가</label></div>
+            <div class="toggle-row"><input type="checkbox" id="includesVat" checked><label for="includesVat" data-i18n="lbl_incvat"></label></div>
           </div>
         </div>
       </div>
 
       <div class="panel-section">
-        <h2>직접원가 (product/service direct cost)</h2>
+        <h2 data-i18n="sec_direct"></h2>
         <div id="direct-items"></div>
-        <button class="add-btn" id="add-direct" type="button">+ 직접원가 항목 추가</button>
+        <button class="add-btn" id="add-direct" type="button" data-i18n="add_direct"></button>
       </div>
 
       <div class="panel-section">
-        <h2>변동비 (variable selling/delivery)</h2>
+        <h2 data-i18n="sec_variable"></h2>
         <div id="variable-items"></div>
-        <button class="add-btn" id="add-variable" type="button">+ 변동비 항목 추가</button>
+        <button class="add-btn" id="add-variable" type="button" data-i18n="add_variable"></button>
       </div>
 
       <div class="panel-section">
-        <h2>고정운영비 &amp; 목표</h2>
+        <h2 data-i18n="sec_fixed"></h2>
         <div class="field">
-          <label for="fixedCost">월 고정운영비 합계 (KRW)</label>
+          <label for="fixedCost" data-i18n="lbl_fixed"></label>
           <input type="number" id="fixedCost" value="2000000" min="0" step="10000">
-          <span class="hint">BEP·판매량 손익에 사용 — 임대료·인건비·판관비 등 월 합계</span>
+          <span class="hint" data-i18n="hint_fixed"></span>
         </div>
         <div class="field">
-          <label for="plannedQty">월 계획 판매량 (개)</label>
+          <label for="plannedQty" data-i18n="lbl_qty"></label>
           <input type="number" id="plannedQty" value="200" min="0" step="1">
-          <span class="hint">판매량 손익(Volume Profit)에 사용 — 비우면 미입력으로 처리, 0은 &ldquo;판매 없음&rdquo;</span>
+          <span class="hint" data-i18n="hint_qty"></span>
         </div>
         <div class="row2">
           <div class="field">
-            <label for="targetCmr">목표 공헌이익률 (%)</label>
+            <label for="targetCmr" data-i18n="lbl_target"></label>
             <input type="number" id="targetCmr" value="45" min="0" max="99" step="0.5">
-            <span class="hint">MODE B에 사용</span>
+            <span class="hint" data-i18n="hint_target"></span>
           </div>
           <div class="field">
-            <label for="discountRate">정가 대비 할인율 (%)</label>
+            <label for="discountRate" data-i18n="lbl_discount"></label>
             <input type="number" id="discountRate" value="0" min="0" max="99" step="1">
-            <span class="hint">MODE B 정가 역산</span>
+            <span class="hint" data-i18n="hint_discount"></span>
           </div>
         </div>
         <div class="field">
-          <label for="marketPrice">목표 시장가격 (KRW)</label>
+          <label for="marketPrice" data-i18n="lbl_market"></label>
           <input type="number" id="marketPrice" value="32000" min="0" step="100">
-          <span class="hint">MODE C에 사용 — 외부에서 주어진 판매가</span>
+          <span class="hint" data-i18n="hint_market"></span>
         </div>
       </div>
     </div>
@@ -315,11 +330,11 @@
     <!-- RESULTS PANEL -->
     <div class="panel">
       <div class="tabs" role="tablist">
-        <button class="tab" role="tab" id="tabbtn-a" aria-selected="true" data-tab="a">MODE A<span class="q">현재가 진단</span></button>
-        <button class="tab" role="tab" id="tabbtn-b" aria-selected="false" data-tab="b">MODE B<span class="q">목표 가격</span></button>
-        <button class="tab" role="tab" id="tabbtn-c" aria-selected="false" data-tab="c">MODE C<span class="q">허용 원가</span></button>
-        <button class="tab" role="tab" id="tabbtn-bep" aria-selected="false" data-tab="bep">BEP<span class="q">손익분기</span></button>
-        <button class="tab" role="tab" id="tabbtn-vp" aria-selected="false" data-tab="vp">판매량 손익<span class="q">Volume Profit</span></button>
+        <button class="tab" role="tab" id="tabbtn-a" aria-selected="true" data-tab="a">MODE A<span class="q" data-i18n="tab_a"></span></button>
+        <button class="tab" role="tab" id="tabbtn-b" aria-selected="false" data-tab="b">MODE B<span class="q" data-i18n="tab_b"></span></button>
+        <button class="tab" role="tab" id="tabbtn-c" aria-selected="false" data-tab="c">MODE C<span class="q" data-i18n="tab_c"></span></button>
+        <button class="tab" role="tab" id="tabbtn-bep" aria-selected="false" data-tab="bep">BEP<span class="q" data-i18n="tab_bep"></span></button>
+        <button class="tab" role="tab" id="tabbtn-vp" aria-selected="false" data-tab="vp"><span data-i18n="tab_vp"></span><span class="q" data-i18n="tab_vp_sub"></span></button>
       </div>
 
       <div class="tabpanel" id="tab-a" role="tabpanel"></div>
@@ -330,11 +345,7 @@
     </div>
   </div>
 
-  <footer class="note">
-    단일 컴포넌트 상품을 가정한 단순화 버전이며, shared-cost 배분·다중 컴포넌트·통화 환산 등 <code>core/engine</code>의 일부 규칙은 반영하지 않았습니다.
-    판매량 손익은 정액(주문당) 비용을 주문당 1개 판매로 가정하므로 해당 지표를 ESTIMATED로 표시합니다.
-    실제 컨설팅 산출물은 <code>core/engine</code>의 Python 계산 결과를 기준(source of truth)으로 삼아야 합니다.
-  </footer>
+  <footer class="note" data-i18n-html="footer"></footer>
 </div>
 
 <script>
@@ -342,36 +353,218 @@
   const $ = (sel, root) => (root||document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root||document).querySelectorAll(sel));
 
+  // ---------- translations (single source for every user-visible string) ----------
+  const I18N = {
+    ko: {
+      title: "가격 진단 계산기",
+      sub: "단일 상품의 판매가·원가 구조를 입력하면 현재가 진단, 목표가, 허용원가, 손익분기점을 즉시 계산합니다.",
+      chip: "프로토타입 · Python Core 미러링",
+      sec_price: "판매가 & 부가세",
+      lbl_price: "실제 판매가 (KRW)",
+      lbl_vat: "부가세율 (%)",
+      lbl_incvat: "위 가격은 VAT 포함가",
+      sec_direct: "직접원가 (product/service direct cost)",
+      add_direct: "+ 직접원가 항목 추가",
+      sec_variable: "변동비 (variable selling/delivery)",
+      add_variable: "+ 변동비 항목 추가",
+      sec_fixed: "고정운영비 & 목표",
+      lbl_fixed: "월 고정운영비 합계 (KRW)",
+      hint_fixed: "BEP·판매량 손익에 사용 — 임대료·인건비·판관비 등 월 합계",
+      lbl_qty: "월 계획 판매량 (개)",
+      hint_qty: "판매량 손익(Volume Profit)에 사용 — 비우면 미입력으로 처리, 0은 “판매 없음”",
+      lbl_target: "목표 공헌이익률 (%)",
+      hint_target: "MODE B에 사용",
+      lbl_discount: "정가 대비 할인율 (%)",
+      hint_discount: "MODE B 정가 역산",
+      lbl_market: "목표 시장가격 (KRW)",
+      hint_market: "MODE C에 사용 — 외부에서 주어진 판매가",
+      tab_a: "현재가 진단", tab_b: "목표 가격", tab_c: "허용 원가", tab_bep: "손익분기",
+      tab_vp: "판매량 손익", tab_vp_sub: "Volume Profit",
+      footer: "단일 컴포넌트 상품을 가정한 단순화 버전이며, shared-cost 배분·다중 컴포넌트·통화 환산 등 <code>core/engine</code>의 일부 규칙은 반영하지 않았습니다. 판매량 손익은 정액(주문당) 비용을 주문당 1개 판매로 가정하므로 해당 지표를 ESTIMATED로 표시합니다. 실제 컨설팅 산출물은 <code>core/engine</code>의 Python 계산 결과를 기준(source of truth)으로 삼아야 합니다.",
+
+      item_materials: "자재원가", item_packaging: "포장비", item_pg: "PG수수료", item_shipping: "배송비", item_new: "신규 항목",
+      empty_direct: "항목 없음 — 직접원가 0원으로 계산됩니다.",
+      empty_variable: "항목 없음 — 변동비 0원으로 계산됩니다.",
+      ph_name: "항목명", ph_amount: "금액(KRW)", ph_rate: "요율(%)", aria_remove: "삭제",
+      kind_flat: "정액 (개당)", kind_per_order: "정액 (주문당)", kind_net_sales: "순매출 대비 %", kind_gross_payment: "지불액 대비 %",
+
+      na: "해당없음", undetermined: "미확정", unit_count: "개",
+
+      a_n: "VAT 제외 순매출 (N)", a_n_note: "판매가 기준 환산값",
+      a_direct: "직접원가 합계", a_gp: "매출총이익 (Gross Profit)", a_gpr: "매출총이익률",
+      a_var: "변동비 합계", a_cm: "공헌이익 (Contribution Margin)", a_cmr: "공헌이익률",
+      a_wf_title: "가격 분해 (판매가 → 공헌이익)",
+      a_wf_price: "판매가(VAT제외)", a_wf_direct: "− 직접원가", a_wf_var: "− 변동비", a_wf_cm: "= 공헌이익",
+
+      b_err_strong: "목표 달성 불가.",
+      b_err_body: (pct) => `현재 비율형 비용 구조(변동비율)와 목표 공헌이익률(${pct})로는 분모가 0 이하가 되어 어떤 가격을 매겨도 목표를 달성할 수 없습니다. 목표율을 낮추거나 변동비율(수수료 등)을 재협상하세요.`,
+      b_n: "목표 순매출 (N)", b_g: "목표 총지불금액 (G, VAT포함)", b_price: "목표 판매가",
+      b_price_note_incl: "VAT 포함가 기준", b_price_note_excl: "VAT 제외가 기준",
+      b_list: "목표 정가 (할인 반영)", b_list_note: (pct) => `할인율 ${pct} 역산`,
+      b_ecm: "예상 공헌이익",
+
+      c_err_strong: "목표 시장가격 미입력.",
+      c_err_body: "왼쪽 패널에 목표 시장가격을 입력하면 허용원가를 계산합니다.",
+      c_nm: "시장 순매출 (N)", c_gm: "시장 총지불금액 (G)", c_adc: "허용 직접원가 (ADC)",
+      c_adc_note_neg: "음수 — 현재 목표율로는 원가를 0까지 낮춰도 미달성",
+      c_adc_note_pos: "이 금액까지 직접원가로 지출 가능",
+      c_actual: "실제 직접원가", c_gap: "원가 여유 (허용 − 실제)",
+      c_gap_ok: "여유 있음", c_gap_over: "허용원가 초과 — 목표 미달",
+      c_ecmr: "예상 공헌이익률",
+      c_neg_strong: "허용원가가 음수입니다.",
+      c_neg_body: "이 시장가격·수수료 구조·목표 공헌이익률로는 직접원가를 0으로 낮춰도 목표를 달성할 수 없습니다. 목표율 재검토, 수수료 재협상, 또는 가격대 자체의 재검토가 필요합니다.",
+
+      bep_zero_zero: "고정비와 단위 공헌이익이 모두 0입니다 — 손익분기 판매량 개념이 정의되지 않습니다.",
+      bep_zero: "현재 단위 공헌이익이 0이라 어떤 판매량으로도 고정비를 회수할 수 없습니다.",
+      bep_negative: "판매할수록 손실이 커지는 구조입니다(단위 공헌이익이 음수). 손익분기 판매량 개념이 성립하지 않습니다.",
+      bep_cmu: "단위당 공헌이익", bep_q_label: "손익분기 판매량",
+      bep_cmu_full: "단위당 공헌이익 (CMu)", bep_fc: "기간 고정운영비 (FC)", bep_q_full: "손익분기 판매량 (Q)",
+
+      vp_unknown_strong: "월 계획 판매량 미입력.",
+      vp_unknown_body: "왼쪽 패널에 월 계획 판매량을 입력하면 영업이익과 안전한계를 계산합니다 (기간을 임의로 가정하지 않으므로 값이 있어야 합니다).",
+      vp_error_strong: "계산할 수 없습니다.",
+      vp_error_negative: "월 계획 판매량이 음수이거나 숫자가 아닙니다. 0 이상의 값을 입력하세요.",
+      vp_error_price: "판매가 또는 VAT 설정이 유효하지 않아 순매출을 계산할 수 없습니다. 판매가를 확인하세요.",
+      vp_be_negative: "판매할수록 손실이 커지는 구조입니다(단위 공헌이익 음수). 손익분기 판매량 개념이 성립하지 않아 안전한계도 계산하지 않습니다.",
+      vp_be_zero_zero: "고정비와 단위 공헌이익이 모두 0입니다 — 손익분기 판매량이 정의되지 않습니다.",
+      vp_be_zero: "단위 공헌이익이 0이라 어떤 판매량으로도 고정비를 회수할 수 없습니다.",
+      vp_q: "월 계획 판매량", vp_sales: "총 순매출 (VAT 제외)", vp_tcm: "총 공헌이익",
+      vp_op: "영업이익 (공헌이익 − 고정운영비)", vp_op_note_loss: "손실 — 고정운영비를 회수하지 못함", vp_op_note_gain: "고정운영비 회수 후 남는 금액",
+      vp_opr: "영업이익률", vp_be: "손익분기 판매량",
+      vp_mos: "안전한계 수량 (계획 − 손익분기)", vp_mos_note: "음수 — 계획이 손익분기에 못 미침", vp_mosr: "안전한계율",
+      vp_bars_title: "계획 판매량 vs 손익분기 판매량", vp_bar_plan: "계획 판매량", vp_bar_be: "손익분기 판매량",
+      vp_no_be_strong: "손익분기 판매량 없음.",
+      vp_below_strong: "손익분기 미달.",
+      vp_below_body: "계획 판매량이 손익분기 판매량에 못 미칩니다 — 고정운영비를 회수하지 못합니다.",
+      vp_est_strong: "추정값 포함.",
+      vp_est_body: "정액(주문당) 비용을 주문당 1개 판매로 가정했습니다. 주문당 구매 수량이 1개보다 크면 비용이 과대 계상되고 영업이익이 과소 계상됩니다.",
+    },
+    en: {
+      title: "Pricing Diagnostic Calculator",
+      sub: "Enter one product's selling price and cost structure to instantly calculate the current-price diagnosis, target price, allowable cost, break-even point and profit at a planned volume.",
+      chip: "Prototype · mirrors the Python Core",
+      sec_price: "Selling price & VAT",
+      lbl_price: "Actual selling price (KRW)",
+      lbl_vat: "VAT rate (%)",
+      lbl_incvat: "Price above includes VAT",
+      sec_direct: "Direct cost (product/service direct cost)",
+      add_direct: "+ Add direct cost item",
+      sec_variable: "Variable cost (variable selling/delivery)",
+      add_variable: "+ Add variable cost item",
+      sec_fixed: "Fixed cost & targets",
+      lbl_fixed: "Monthly fixed operating cost, total (KRW)",
+      hint_fixed: "Used for BEP and Volume Profit — monthly total of rent, payroll, overhead, etc.",
+      lbl_qty: "Planned monthly quantity (units)",
+      hint_qty: "Used for Volume Profit — blank means not entered; 0 means “no sales”",
+      lbl_target: "Target contribution margin rate (%)",
+      hint_target: "Used for MODE B",
+      lbl_discount: "Discount from list price (%)",
+      hint_discount: "Used to back out the MODE B list price",
+      lbl_market: "Target market price (KRW)",
+      hint_market: "Used for MODE C — selling price given externally",
+      tab_a: "Current price", tab_b: "Target price", tab_c: "Allowable cost", tab_bep: "Break-even",
+      tab_vp: "Volume Profit", tab_vp_sub: "Profit at volume",
+      footer: "This is a simplified single-component version; some rules in <code>core/engine</code> — shared-cost allocation, multiple components, currency conversion — are not reflected. Volume Profit assumes one unit per order for fixed per-order costs and marks the affected metrics ESTIMATED. Actual consulting deliverables must use the Python results from <code>core/engine</code> as the source of truth.",
+
+      item_materials: "Materials", item_packaging: "Packaging", item_pg: "Payment gateway fee", item_shipping: "Shipping", item_new: "New item",
+      empty_direct: "No items — direct cost is treated as 0.",
+      empty_variable: "No items — variable cost is treated as 0.",
+      ph_name: "Item name", ph_amount: "Amount (KRW)", ph_rate: "Rate (%)", aria_remove: "Remove",
+      kind_flat: "Fixed amount (per unit)", kind_per_order: "Fixed amount (per order)", kind_net_sales: "% of net sales", kind_gross_payment: "% of gross payment",
+
+      na: "N/A", undetermined: "Undetermined", unit_count: "units",
+
+      a_n: "Net sales ex VAT (N)", a_n_note: "Converted from the selling price",
+      a_direct: "Total direct cost", a_gp: "Gross profit", a_gpr: "Gross profit rate",
+      a_var: "Total variable cost", a_cm: "Contribution margin", a_cmr: "Contribution margin rate",
+      a_wf_title: "Price breakdown (selling price → contribution margin)",
+      a_wf_price: "Selling price (ex VAT)", a_wf_direct: "− Direct cost", a_wf_var: "− Variable cost", a_wf_cm: "= Contribution margin",
+
+      b_err_strong: "Target unreachable.",
+      b_err_body: (pct) => `With the current rate-based cost structure (variable rates) and a target contribution margin rate of ${pct}, the denominator is zero or negative, so no price can reach the target. Lower the target rate or renegotiate the variable rates (fees, etc.).`,
+      b_n: "Required net sales (N)", b_g: "Required gross payment (G, incl. VAT)", b_price: "Required selling price",
+      b_price_note_incl: "VAT-inclusive basis", b_price_note_excl: "VAT-exclusive basis",
+      b_list: "Required list price (after discount)", b_list_note: (pct) => `Backed out from a ${pct} discount`,
+      b_ecm: "Expected contribution margin",
+
+      c_err_strong: "Target market price not entered.",
+      c_err_body: "Enter a target market price in the left panel to calculate the allowable cost.",
+      c_nm: "Market net sales (N)", c_gm: "Market gross payment (G)", c_adc: "Allowable direct cost (ADC)",
+      c_adc_note_neg: "Negative — the target cannot be met even at zero cost",
+      c_adc_note_pos: "Direct cost can be spent up to this amount",
+      c_actual: "Actual direct cost", c_gap: "Cost headroom (allowable − actual)",
+      c_gap_ok: "Within budget", c_gap_over: "Over the allowable cost — target missed",
+      c_ecmr: "Expected contribution margin rate",
+      c_neg_strong: "Allowable cost is negative.",
+      c_neg_body: "With this market price, fee structure and target contribution margin rate, the target cannot be reached even if direct cost is cut to zero. Reconsider the target rate, renegotiate fees, or rethink the price point itself.",
+
+      bep_zero_zero: "Fixed cost and contribution margin per unit are both 0 — break-even quantity is undefined.",
+      bep_zero: "Contribution margin per unit is 0, so no sales quantity can recover the fixed cost.",
+      bep_negative: "Every unit sold increases the loss (contribution margin per unit is negative), so break-even quantity does not exist.",
+      bep_cmu: "Contribution margin per unit", bep_q_label: "Break-even quantity",
+      bep_cmu_full: "Contribution margin per unit (CMu)", bep_fc: "Fixed operating cost for the period (FC)", bep_q_full: "Break-even quantity (Q)",
+
+      vp_unknown_strong: "Planned monthly quantity not entered.",
+      vp_unknown_body: "Enter the planned monthly quantity in the left panel to calculate operating profit and margin of safety (the period is never assumed, so a value is required).",
+      vp_error_strong: "Cannot calculate.",
+      vp_error_negative: "The planned monthly quantity is negative or not a number. Enter 0 or more.",
+      vp_error_price: "The selling price or VAT setting is invalid, so net sales cannot be calculated. Check the selling price.",
+      vp_be_negative: "Every unit sold increases the loss (contribution margin per unit is negative), so break-even quantity does not exist and margin of safety is not calculated.",
+      vp_be_zero_zero: "Fixed cost and contribution margin per unit are both 0 — break-even quantity is undefined.",
+      vp_be_zero: "Contribution margin per unit is 0, so no sales quantity can recover the fixed cost.",
+      vp_q: "Planned monthly quantity", vp_sales: "Total net sales (ex VAT)", vp_tcm: "Total contribution margin",
+      vp_op: "Operating profit (contribution margin − fixed cost)", vp_op_note_loss: "Loss — fixed cost is not recovered", vp_op_note_gain: "Amount left after recovering fixed cost",
+      vp_opr: "Operating profit rate", vp_be: "Break-even quantity",
+      vp_mos: "Margin of safety quantity (plan − break-even)", vp_mos_note: "Negative — the plan is below break-even", vp_mosr: "Margin of safety rate",
+      vp_bars_title: "Planned quantity vs break-even quantity", vp_bar_plan: "Planned quantity", vp_bar_be: "Break-even quantity",
+      vp_no_be_strong: "No break-even quantity.",
+      vp_below_strong: "Below break-even.",
+      vp_below_body: "The planned quantity is below the break-even quantity — fixed cost is not recovered.",
+      vp_est_strong: "Includes an estimate.",
+      vp_est_body: "Fixed per-order costs are assumed to cover one unit per order. If customers buy more than one unit per order, cost is overstated and operating profit is understated.",
+    },
+  };
+
+  let LANG = new URLSearchParams(location.search).get("lang") === "en" ? "en" : "ko";
+  const t = (key, ...args) => {
+    const v = I18N[LANG][key];
+    return typeof v === "function" ? v(...args) : v;
+  };
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+
+  const numLocale = () => (LANG === "en" ? "en-US" : "ko-KR");
   const fmt = (n, digits=0) => {
     if (n === null || n === undefined || Number.isNaN(n)) return "—";
-    return n.toLocaleString('ko-KR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    return n.toLocaleString(numLocale(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
   };
-  const fmtPct = (r) => (r === null || r === undefined || Number.isNaN(r)) ? "—" : (r*100).toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + "%";
+  const fmtPct = (r) => (r === null || r === undefined || Number.isNaN(r)) ? "—" : (r*100).toLocaleString(numLocale(), { maximumFractionDigits: 1 }) + "%";
 
   // ---------- dynamic item rows ----------
+  // An item with a labelKey still shows its translated default name; typing a name replaces it.
   let directItems = [
-    { label: "자재원가", amount: 12000 },
-    { label: "포장비", amount: 1500 },
+    { labelKey: "item_materials", amount: 12000 },
+    { labelKey: "item_packaging", amount: 1500 },
   ];
   let variableItems = [
-    { label: "PG수수료", kind: "gross_payment", amount: null, rate: 2.5 },
-    { label: "배송비", kind: "per_order", amount: 3000, rate: null },
+    { labelKey: "item_pg", kind: "gross_payment", amount: null, rate: 2.5 },
+    { labelKey: "item_shipping", kind: "per_order", amount: 3000, rate: null },
   ];
+  const itemLabel = (item) => item.labelKey ? t(item.labelKey) : (item.label || "");
 
   function renderDirectItems(){
     const host = $("#direct-items");
     host.innerHTML = "";
     if (directItems.length === 0){
-      host.innerHTML = '<div class="items-empty">항목 없음 — 직접원가 0원으로 계산됩니다.</div>';
+      host.innerHTML = `<div class="items-empty">${t("empty_direct")}</div>`;
     }
     directItems.forEach((item, i) => {
       const row = document.createElement("div");
       row.className = "item-row";
       row.style.gridTemplateColumns = "1.4fr 1fr auto";
       row.innerHTML = `
-        <input type="text" data-idx="${i}" data-f="label" value="${item.label}" placeholder="항목명">
-        <input type="number" data-idx="${i}" data-f="amount" value="${item.amount}" placeholder="금액(KRW)">
-        <button class="icon-btn" type="button" data-remove="${i}" aria-label="삭제">×</button>
+        <input type="text" data-idx="${i}" data-f="label" value="${esc(itemLabel(item))}" placeholder="${t("ph_name")}">
+        <input type="number" data-idx="${i}" data-f="amount" value="${item.amount}" placeholder="${t("ph_amount")}">
+        <button class="icon-btn" type="button" data-remove="${i}" aria-label="${t("aria_remove")}">×</button>
       `;
       host.appendChild(row);
     });
@@ -379,7 +572,8 @@
       const idx = e.target.getAttribute("data-idx");
       if (idx === null) return;
       const f = e.target.getAttribute("data-f");
-      directItems[idx][f] = f === "amount" ? parseFloat(e.target.value) : e.target.value;
+      if (f === "amount") directItems[idx].amount = parseFloat(e.target.value);
+      else { directItems[idx].label = e.target.value; delete directItems[idx].labelKey; }
       compute();
     };
     host.onclick = (e) => {
@@ -394,22 +588,22 @@
     const host = $("#variable-items");
     host.innerHTML = "";
     if (variableItems.length === 0){
-      host.innerHTML = '<div class="items-empty">항목 없음 — 변동비 0원으로 계산됩니다.</div>';
+      host.innerHTML = `<div class="items-empty">${t("empty_variable")}</div>`;
     }
     variableItems.forEach((item, i) => {
       const row = document.createElement("div");
       row.className = "item-row";
       const isRate = item.kind === "net_sales" || item.kind === "gross_payment";
       row.innerHTML = `
-        <input type="text" data-idx="${i}" data-f="label" value="${item.label}" placeholder="항목명">
+        <input type="text" data-idx="${i}" data-f="label" value="${esc(itemLabel(item))}" placeholder="${t("ph_name")}">
         <select data-idx="${i}" data-f="kind">
-          <option value="flat" ${item.kind==='flat'?'selected':''}>정액 (개당)</option>
-          <option value="per_order" ${item.kind==='per_order'?'selected':''}>정액 (주문당)</option>
-          <option value="net_sales" ${item.kind==='net_sales'?'selected':''}>순매출 대비 %</option>
-          <option value="gross_payment" ${item.kind==='gross_payment'?'selected':''}>지불액 대비 %</option>
+          <option value="flat" ${item.kind==='flat'?'selected':''}>${t("kind_flat")}</option>
+          <option value="per_order" ${item.kind==='per_order'?'selected':''}>${t("kind_per_order")}</option>
+          <option value="net_sales" ${item.kind==='net_sales'?'selected':''}>${t("kind_net_sales")}</option>
+          <option value="gross_payment" ${item.kind==='gross_payment'?'selected':''}>${t("kind_gross_payment")}</option>
         </select>
-        <input type="number" data-idx="${i}" data-f="value" value="${isRate ? (item.rate ?? '') : (item.amount ?? '')}" placeholder="${isRate ? '요율(%)' : '금액(KRW)'}">
-        <button class="icon-btn" type="button" data-remove="${i}" aria-label="삭제">×</button>
+        <input type="number" data-idx="${i}" data-f="value" value="${isRate ? (item.rate ?? '') : (item.amount ?? '')}" placeholder="${isRate ? t("ph_rate") : t("ph_amount")}">
+        <button class="icon-btn" type="button" data-remove="${i}" aria-label="${t("aria_remove")}">×</button>
       `;
       host.appendChild(row);
     });
@@ -418,7 +612,7 @@
       if (idx === null) return;
       const f = e.target.getAttribute("data-f");
       const item = variableItems[idx];
-      if (f === "label") item.label = e.target.value;
+      if (f === "label") { item.label = e.target.value; delete item.labelKey; }
       else if (f === "kind") { item.kind = e.target.value; renderVariableItems(); compute(); return; }
       else if (f === "value") {
         const v = parseFloat(e.target.value);
@@ -434,8 +628,8 @@
     };
   }
 
-  $("#add-direct").onclick = () => { directItems.push({label:"신규 항목", amount:0}); renderDirectItems(); compute(); };
-  $("#add-variable").onclick = () => { variableItems.push({label:"신규 항목", kind:"flat", amount:0, rate:null}); renderVariableItems(); compute(); };
+  $("#add-direct").onclick = () => { directItems.push({labelKey:"item_new", amount:0}); renderDirectItems(); compute(); };
+  $("#add-variable").onclick = () => { variableItems.push({labelKey:"item_new", kind:"flat", amount:0, rate:null}); renderVariableItems(); compute(); };
 
   // ---------- tabs ----------
   const tabIds = ["a","b","c","bep","vp"];
@@ -452,7 +646,7 @@
   function metricTile({label, value, unit, status, hero, note, digits}){
     const displayVal = status === "OK" || status === "ESTIMATED"
       ? (unit === "%" ? fmtPct(value) : (unit ? fmt(value, digits||0) + " " + unit : fmt(value, digits||0)))
-      : (status === "NOT_APPLICABLE" ? "해당없음" : "미확정");
+      : (status === "NOT_APPLICABLE" ? t("na") : t("undetermined"));
     return `<div class="metric ${hero?'hero':''}">
       <span class="m-pill pill-${status}">${status}</span>
       <span class="m-label">${label}</span>
@@ -575,20 +769,20 @@
     $("#tab-a").innerHTML = `
       ${moduleStatusBadge(moduleStatus)}
       <div class="metric-grid">
-        ${metricTile({label:"VAT 제외 순매출 (N)", value:r.N, status:"OK", note:"판매가 기준 환산값"})}
-        ${metricTile({label:"직접원가 합계", value:agg.directTotal, status:"OK"})}
-        ${metricTile({label:"매출총이익 (Gross Profit)", value:r.grossProfit, status:"OK"})}
-        ${metricTile({label:"매출총이익률", value:r.grossProfitRate, unit:"%", status:"OK"})}
-        ${metricTile({label:"변동비 합계", value:r.variableTotal, status:"OK"})}
-        ${metricTile({label:"공헌이익 (Contribution Margin)", value:r.cm, status:"OK", hero:true})}
-        ${metricTile({label:"공헌이익률", value:r.cmRate, unit:"%", status:"OK", hero:true})}
+        ${metricTile({label:t("a_n"), value:r.N, status:"OK", note:t("a_n_note")})}
+        ${metricTile({label:t("a_direct"), value:agg.directTotal, status:"OK"})}
+        ${metricTile({label:t("a_gp"), value:r.grossProfit, status:"OK"})}
+        ${metricTile({label:t("a_gpr"), value:r.grossProfitRate, unit:"%", status:"OK"})}
+        ${metricTile({label:t("a_var"), value:r.variableTotal, status:"OK"})}
+        ${metricTile({label:t("a_cm"), value:r.cm, status:"OK", hero:true})}
+        ${metricTile({label:t("a_cmr"), value:r.cmRate, unit:"%", status:"OK", hero:true})}
       </div>
       <div class="waterfall">
-        <h3>가격 분해 (판매가 → 공헌이익)</h3>
-        ${wf("판매가(VAT제외)", r.N, "price")}
-        ${wf("− 직접원가", agg.directTotal, "direct")}
-        ${wf("− 변동비", r.variableTotal, "variable")}
-        ${wf("= 공헌이익", r.cm, "cm")}
+        <h3>${t("a_wf_title")}</h3>
+        ${wf(t("a_wf_price"), r.N, "price")}
+        ${wf(t("a_wf_direct"), agg.directTotal, "direct")}
+        ${wf(t("a_wf_var"), r.variableTotal, "variable")}
+        ${wf(t("a_wf_cm"), r.cm, "cm")}
       </div>
     `;
   }
@@ -597,54 +791,51 @@
     if (r.status === "ERROR"){
       $("#tab-b").innerHTML = `
         ${moduleStatusBadge("ERROR")}
-        <div class="warn-box"><strong>목표 달성 불가.</strong> 현재 비율형 비용 구조(변동비율)와 목표 공헌이익률(${fmtPct(inp.t)})로는
-        분모가 0 이하가 되어 어떤 가격을 매겨도 목표를 달성할 수 없습니다. 목표율을 낮추거나 변동비율(수수료 등)을 재협상하세요.</div>`;
+        <div class="warn-box"><strong>${t("b_err_strong")}</strong> ${t("b_err_body", fmtPct(inp.t))}</div>`;
       return;
     }
     $("#tab-b").innerHTML = `
       ${moduleStatusBadge("OK")}
       <div class="metric-grid">
-        ${metricTile({label:"목표 순매출 (N)", value:r.N, status:"OK"})}
-        ${metricTile({label:"목표 총지불금액 (G, VAT포함)", value:r.G, status:"OK"})}
-        ${metricTile({label:"목표 판매가", value:r.requiredSellingPrice, status:"OK", hero:true, note: inp.includesVat ? "VAT 포함가 기준" : "VAT 제외가 기준"})}
-        ${metricTile({label:"목표 정가 (할인 반영)", value:r.requiredListPrice, status:"OK", hero:true, note:`할인율 ${fmtPct(inp.discountRate)} 역산`})}
-        ${metricTile({label:"예상 공헌이익", value:r.expectedCm, status:"OK"})}
+        ${metricTile({label:t("b_n"), value:r.N, status:"OK"})}
+        ${metricTile({label:t("b_g"), value:r.G, status:"OK"})}
+        ${metricTile({label:t("b_price"), value:r.requiredSellingPrice, status:"OK", hero:true, note: inp.includesVat ? t("b_price_note_incl") : t("b_price_note_excl")})}
+        ${metricTile({label:t("b_list"), value:r.requiredListPrice, status:"OK", hero:true, note:t("b_list_note", fmtPct(inp.discountRate))})}
+        ${metricTile({label:t("b_ecm"), value:r.expectedCm, status:"OK"})}
       </div>`;
   }
 
   function renderModeC(inp, r){
     if (r.status === "ERROR"){
       $("#tab-c").innerHTML = `${moduleStatusBadge("INCOMPLETE")}
-        <div class="warn-box info"><strong>목표 시장가격 미입력.</strong> 왼쪽 패널에 목표 시장가격을 입력하면 허용원가를 계산합니다.</div>`;
+        <div class="warn-box info"><strong>${t("c_err_strong")}</strong> ${t("c_err_body")}</div>`;
       return;
     }
     const negative = r.adc < 0;
     $("#tab-c").innerHTML = `
       ${moduleStatusBadge("OK")}
       <div class="metric-grid">
-        ${metricTile({label:"시장 순매출 (N)", value:r.Nm, status:"OK"})}
-        ${metricTile({label:"시장 총지불금액 (G)", value:r.Gm, status:"OK"})}
-        ${metricTile({label:"허용 직접원가 (ADC)", value:r.adc, status:"OK", hero:true, note: negative ? "음수 — 현재 목표율로는 원가를 0까지 낮춰도 미달성" : "이 금액까지 직접원가로 지출 가능"})}
-        ${metricTile({label:"실제 직접원가", value:r.actualDirectCost, status:"OK"})}
-        ${metricTile({label:"원가 여유 (허용 − 실제)", value:r.gap, status:"OK", note: r.gap>=0 ? "여유 있음" : "허용원가 초과 — 목표 미달"})}
-        ${metricTile({label:"예상 공헌이익률", value:r.expectedCmRate, unit:"%", status:"OK"})}
+        ${metricTile({label:t("c_nm"), value:r.Nm, status:"OK"})}
+        ${metricTile({label:t("c_gm"), value:r.Gm, status:"OK"})}
+        ${metricTile({label:t("c_adc"), value:r.adc, status:"OK", hero:true, note: negative ? t("c_adc_note_neg") : t("c_adc_note_pos")})}
+        ${metricTile({label:t("c_actual"), value:r.actualDirectCost, status:"OK"})}
+        ${metricTile({label:t("c_gap"), value:r.gap, status:"OK", note: r.gap>=0 ? t("c_gap_ok") : t("c_gap_over")})}
+        ${metricTile({label:t("c_ecmr"), value:r.expectedCmRate, unit:"%", status:"OK"})}
       </div>
-      ${negative ? `<div class="warn-box"><strong>허용원가가 음수입니다.</strong> 이 시장가격·수수료 구조·목표 공헌이익률로는 직접원가를 0으로 낮춰도 목표를 달성할 수 없습니다. 목표율 재검토, 수수료 재협상, 또는 가격대 자체의 재검토가 필요합니다.</div>` : ""}
+      ${negative ? `<div class="warn-box"><strong>${t("c_neg_strong")}</strong> ${t("c_neg_body")}</div>` : ""}
     `;
   }
 
   function renderBep(inp, r){
     if (r.status === "NOT_APPLICABLE"){
-      const msg = r.reason === "zero_zero"
-        ? "고정비와 단위 공헌이익이 모두 0입니다 — 손익분기 판매량 개념이 정의되지 않습니다."
-        : r.reason === "zero_margin"
-        ? "현재 단위 공헌이익이 0이라 어떤 판매량으로도 고정비를 회수할 수 없습니다."
-        : "판매할수록 손실이 커지는 구조입니다(단위 공헌이익이 음수). 손익분기 판매량 개념이 성립하지 않습니다.";
+      const msg = r.reason === "zero_zero" ? t("bep_zero_zero")
+        : r.reason === "zero_margin" ? t("bep_zero")
+        : t("bep_negative");
       $("#tab-bep").innerHTML = `
         ${moduleStatusBadge("NOT_APPLICABLE")}
         <div class="metric-grid">
-          ${metricTile({label:"단위당 공헌이익", value:r.cmu, status:"OK"})}
-          ${metricTile({label:"손익분기 판매량", value:null, status:"NOT_APPLICABLE"})}
+          ${metricTile({label:t("bep_cmu"), value:r.cmu, status:"OK"})}
+          ${metricTile({label:t("bep_q_label"), value:null, status:"NOT_APPLICABLE"})}
         </div>
         <div class="warn-box">${msg}</div>`;
       return;
@@ -652,9 +843,9 @@
     $("#tab-bep").innerHTML = `
       ${moduleStatusBadge("OK")}
       <div class="metric-grid">
-        ${metricTile({label:"단위당 공헌이익 (CMu)", value:r.cmu, status:"OK"})}
-        ${metricTile({label:"기간 고정운영비 (FC)", value:r.fixedCost, status:"OK"})}
-        ${metricTile({label:"손익분기 판매량 (Q)", value:r.q, unit:"개", status:"OK", hero:true, digits:2})}
+        ${metricTile({label:t("bep_cmu_full"), value:r.cmu, status:"OK"})}
+        ${metricTile({label:t("bep_fc"), value:r.fixedCost, status:"OK"})}
+        ${metricTile({label:t("bep_q_full"), value:r.q, unit:t("unit_count"), status:"OK", hero:true, digits:2})}
       </div>`;
   }
 
@@ -662,14 +853,12 @@
     const host = $("#tab-vp");
     if (r.status === "UNKNOWN"){
       host.innerHTML = `${moduleStatusBadge("INCOMPLETE")}
-        <div class="warn-box info"><strong>월 계획 판매량 미입력.</strong> 왼쪽 패널에 월 계획 판매량을 입력하면 영업이익과 안전한계를 계산합니다 (기간을 임의로 가정하지 않으므로 값이 있어야 합니다).</div>`;
+        <div class="warn-box info"><strong>${t("vp_unknown_strong")}</strong> ${t("vp_unknown_body")}</div>`;
       return;
     }
     if (r.status === "ERROR"){
-      const msg = r.reason === "negative"
-        ? "월 계획 판매량이 음수이거나 숫자가 아닙니다. 0 이상의 값을 입력하세요."
-        : "판매가 또는 VAT 설정이 유효하지 않아 순매출을 계산할 수 없습니다. 판매가를 확인하세요.";
-      host.innerHTML = `${moduleStatusBadge("ERROR")}<div class="warn-box"><strong>계산할 수 없습니다.</strong> ${msg}</div>`;
+      const msg = r.reason === "negative" ? t("vp_error_negative") : t("vp_error_price");
+      host.innerHTML = `${moduleStatusBadge("ERROR")}<div class="warn-box"><strong>${t("vp_error_strong")}</strong> ${msg}</div>`;
       return;
     }
     const cs = r.est ? "ESTIMATED" : "OK";
@@ -681,27 +870,25 @@
         <div class="wf-track"><div class="wf-fill ${cls}" style="width:${Math.max(0, Math.min(100, (val/maxQ)*100))}%"></div></div>
         <span class="wf-value num">${fmt(val, 1)}</span>
       </div>`;
-    const beMsg = r.beNa === "negative"
-      ? "판매할수록 손실이 커지는 구조입니다(단위 공헌이익 음수). 손익분기 판매량 개념이 성립하지 않아 안전한계도 계산하지 않습니다."
-      : r.beNa === "zero_zero"
-      ? "고정비와 단위 공헌이익이 모두 0입니다 — 손익분기 판매량이 정의되지 않습니다."
-      : "단위 공헌이익이 0이라 어떤 판매량으로도 고정비를 회수할 수 없습니다.";
+    const beMsg = r.beNa === "negative" ? t("vp_be_negative")
+      : r.beNa === "zero_zero" ? t("vp_be_zero_zero")
+      : t("vp_be_zero");
     host.innerHTML = `
       ${moduleStatusBadge("OK")}
       <div class="metric-grid">
-        ${metricTile({label:"월 계획 판매량", value:r.q, unit:"개", status:"OK"})}
-        ${metricTile({label:"총 순매출 (VAT 제외)", value:r.totalSales, status:"OK"})}
-        ${metricTile({label:"총 공헌이익", value:r.totalCm, status:cs})}
-        ${metricTile({label:"영업이익 (공헌이익 − 고정운영비)", value:r.op, status:cs, hero:true, note: r.op < 0 ? "손실 — 고정운영비를 회수하지 못함" : "고정운영비 회수 후 남는 금액"})}
-        ${metricTile({label:"영업이익률", value:r.opRate, unit:"%", status: r.opRate === null ? "NOT_APPLICABLE" : cs})}
-        ${metricTile({label:"손익분기 판매량", value:r.be, unit:"개", status:beNaStatus, digits:2})}
-        ${metricTile({label:"안전한계 수량 (계획 − 손익분기)", value:r.mosQty, unit:"개", status:beNaStatus, hero:true, digits:2, note: r.mosQty !== null && r.mosQty < 0 ? "음수 — 계획이 손익분기에 못 미침" : ""})}
-        ${metricTile({label:"안전한계율", value:r.mosRate, unit:"%", status: r.mosRate === null ? "NOT_APPLICABLE" : cs, hero:true})}
+        ${metricTile({label:t("vp_q"), value:r.q, unit:t("unit_count"), status:"OK"})}
+        ${metricTile({label:t("vp_sales"), value:r.totalSales, status:"OK"})}
+        ${metricTile({label:t("vp_tcm"), value:r.totalCm, status:cs})}
+        ${metricTile({label:t("vp_op"), value:r.op, status:cs, hero:true, note: r.op < 0 ? t("vp_op_note_loss") : t("vp_op_note_gain")})}
+        ${metricTile({label:t("vp_opr"), value:r.opRate, unit:"%", status: r.opRate === null ? "NOT_APPLICABLE" : cs})}
+        ${metricTile({label:t("vp_be"), value:r.be, unit:t("unit_count"), status:beNaStatus, digits:2})}
+        ${metricTile({label:t("vp_mos"), value:r.mosQty, unit:t("unit_count"), status:beNaStatus, hero:true, digits:2, note: r.mosQty !== null && r.mosQty < 0 ? t("vp_mos_note") : ""})}
+        ${metricTile({label:t("vp_mosr"), value:r.mosRate, unit:"%", status: r.mosRate === null ? "NOT_APPLICABLE" : cs, hero:true})}
       </div>
-      ${r.be !== null ? `<div class="waterfall"><h3>계획 판매량 vs 손익분기 판매량</h3>${bar("계획 판매량", r.q, "cm")}${bar("손익분기 판매량", r.be, "direct")}</div>` : ""}
-      ${r.be === null ? `<div class="warn-box info"><strong>손익분기 판매량 없음.</strong> ${beMsg}</div>` : ""}
-      ${r.mosQty !== null && r.mosQty < 0 ? `<div class="warn-box"><strong>손익분기 미달.</strong> 계획 판매량이 손익분기 판매량에 못 미칩니다 — 고정운영비를 회수하지 못합니다.</div>` : ""}
-      ${r.est ? `<div class="warn-box info"><strong>추정값 포함.</strong> 정액(주문당) 비용을 주문당 1개 판매로 가정했습니다. 주문당 구매 수량이 1개보다 크면 비용이 과대 계상되고 영업이익이 과소 계상됩니다.</div>` : ""}
+      ${r.be !== null ? `<div class="waterfall"><h3>${t("vp_bars_title")}</h3>${bar(t("vp_bar_plan"), r.q, "cm")}${bar(t("vp_bar_be"), r.be, "direct")}</div>` : ""}
+      ${r.be === null ? `<div class="warn-box info"><strong>${t("vp_no_be_strong")}</strong> ${beMsg}</div>` : ""}
+      ${r.mosQty !== null && r.mosQty < 0 ? `<div class="warn-box"><strong>${t("vp_below_strong")}</strong> ${t("vp_below_body")}</div>` : ""}
+      ${r.est ? `<div class="warn-box info"><strong>${t("vp_est_strong")}</strong> ${t("vp_est_body")}</div>` : ""}
     `;
   }
 
@@ -720,6 +907,26 @@
     renderVolume(inp, volume);
   }
 
+  // ---------- language ----------
+  function applyStatic(){
+    document.documentElement.lang = LANG;
+    document.title = t("title");
+    $$("[data-i18n]").forEach(el => { el.textContent = t(el.getAttribute("data-i18n")); });
+    $$("[data-i18n-html]").forEach(el => { el.innerHTML = t(el.getAttribute("data-i18n-html")); });
+    $$("[data-lang-btn]").forEach(b => b.setAttribute("aria-pressed", b.getAttribute("data-lang-btn") === LANG ? "true" : "false"));
+  }
+  function setLang(next){
+    LANG = next;
+    try {
+      const url = new URL(location.href);
+      if (LANG === "en") url.searchParams.set("lang", "en"); else url.searchParams.delete("lang");
+      history.replaceState(null, "", url);
+    } catch (e) { /* non-critical: the URL just keeps its old query */ }
+    applyStatic(); renderDirectItems(); renderVariableItems(); compute();
+  }
+  $$("[data-lang-btn]").forEach(b => { b.onclick = () => setLang(b.getAttribute("data-lang-btn")); });
+
+  applyStatic();
   renderDirectItems();
   renderVariableItems();
   compute();
