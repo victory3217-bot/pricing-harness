@@ -324,7 +324,7 @@ meant to match each other, and none of them should be read as covering what anot
 
 | Axis | Current value | Source of truth | What it tracks |
 |---|---|---|---|
-| **Product release** | `0.1.0-beta.5` | root [`VERSION`](VERSION) file, tagged in git as `v0.1.0-beta.5` | The Pricing Harness as a whole (Python Core + schemas + Excel Simulator + docs) at a point in time. This is the sanitized public repository's release identity — current maturity is **Limited/Beta**. |
+| **Product release** | `0.1.0-beta.6` | root [`VERSION`](VERSION) file, tagged in git as `v0.1.0-beta.6` | The Pricing Harness as a whole (Python Core + schemas + Excel Simulator + docs) at a point in time. This is the sanitized public repository's release identity — current maturity is **Limited/Beta**. |
 | Python engine marker | `0.5.0` | `ENGINE_VERSION` in [`core/engine/result_builder.py`](core/engine/result_builder.py) | The calculation engine's own internal iteration, stamped into every generated Analysis Result's `source.engine_version` field. |
 | Excel Simulator artifact | `v0.6` | the workbook's own filename, `Pricing_Harness_Excel_Simulator_v0.6.xlsx` | This specific Excel build's own iteration, independent of the Python engine or the product release. |
 | Schema / data contract | `1.2` | `schema_version` field inside every Client Input / Analysis Result / Scenario Compare document | The *shape* of the JSON documents flowing through the system — a data-compatibility version, not a software release. `1.2` added the optional `sales_plan` (Client Input) and `volume_profit` (Analysis Result); every `1.1` document remains valid. |
