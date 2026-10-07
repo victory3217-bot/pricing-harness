@@ -2,7 +2,8 @@
 
 ## 0. Status
 
-Implemented in Python (`core/engine/modes/volume_profit.py`, schema `1.2`, `tests/test_volume_profit.py`).
+Implemented in Python (`core/engine/modes/volume_profit.py`, schema `1.3`, `tests/test_volume_profit.py`).
+v0.2 adds `sales_plan.units_per_order` (§3, §11), which resolves the per-order assumption v0.1 could only flag.
 The Excel Simulator (`12_VOLUME_PROFIT_SIMULATOR`, `13_VOLUME_PROFIT_PARITY_TEST`) and the web
 calculator mirror it; warning codes are not mirrored in Excel. This document is the formula/dependency source of truth for
 Volume Profit — it plays the same role `docs/features/bep/SPEC.md` plays for BEP. Anything that conflicts with BEP/MODE A/B/C
@@ -43,16 +44,19 @@ elasticity and demand curves are out of scope (§15).
 Volume Profit is a sibling of BEP, not a layer on top of it. Following BEP's Design 2 decision
 (`bep/SPEC.md` §3), `run_volume_profit(client_input)` takes only `client_input`, recomputes
 `CMu` and `FC` itself, and never consumes an existing `bep` or `mode_a` result object. It never
-defines its own pricing formula for `CMu`; the per-unit economics are MODE A's, unchanged.
+defines its own pricing formula for `CMu`; the per-unit economics are MODE A's, with one deliberate
+exception (v0.2): `per_order` cost amounts are divided by `units_per_order` (§11), so when that field is
+given and is not 1, `CMu` and `break_even_quantity_exact` differ from MODE A's and BEP's.
 
-## 3. Schema addition (proposed — not yet applied)
+## 3. Schema addition
 
 One new optional top-level object on `client_input`:
 
 ```json
 "sales_plan": {
   "planned_quantity": 200,
-  "period_basis": "per_month"
+  "period_basis": "per_month",
+  "units_per_order": 1.5
 }
 ```
 
@@ -60,6 +64,7 @@ One new optional top-level object on `client_input`:
 |---|---|---|
 | `planned_quantity` | number or null, `>= 0` | Units sold within the analysis period. `null` = not yet entered. |
 | `period_basis` | enum, v0.1 allows only `"per_month"` | The period `planned_quantity` is denominated in. |
+| `units_per_order` | number or null, `> 0` (v0.2) | Average number of units in one order. `per_order` cost amounts are divided by it to get a per-unit figure. Omitted or `null` = not provided: the module then assumes `1` and marks dependent metrics `ESTIMATED` (§11). |
 
 **Why `period_basis` is an explicit field and not a convention.** BEP's `Q_BEP` inherits its period
 implicitly from `fixed_operating_cost.basis` (`bep/SPEC.md` §4: a documentation-level contract,
@@ -73,11 +78,18 @@ field.
 `per_month` (the others are per-unit, per-order, per-visit, or rate bases). There is no
 `per_year`. Supporting more periods needs a schema change on the cost side too; deferred (§15).
 
+**Why `units_per_order` lives in `sales_plan` and not on the price component.** The order-to-unit
+conversion only matters once a quantity enters the model, and Volume Profit is the only module with a
+quantity input. Putting it on `price_components[]` would force MODE A/B/C/BEP — and their Excel parity —
+to define what an order size means for a single-transaction diagnosis, which is out of scope here
+(§16). Volume Profit is single-component, so there is no per-component ambiguity.
+
 **Schema mechanics.** Top-level `additionalProperties` is `false`, so this is a real schema change:
 add `sales_plan` as an optional property, bump `schema_version` `1.1` → `1.2` (additive; every
 existing `1.1` document stays valid by omission), and extend `analysis_result.schema.json` with the
-new module block. The four version axes in the README move independently: only the schema axis
-and the engine marker change; the Excel artifact does not.
+new module block. v0.2 adds one more optional field, `sales_plan.units_per_order`, and bumps the
+schema to `1.3` (additive again) and the engine marker to `0.6.0`. The four version axes in the README
+move independently: only the schema axis and the engine marker change; the Excel artifact does not.
 
 **`sales_plan` omitted entirely** → the module is not an error. It reports `status = "NOT_RUN"`
 (an existing module-level status) with no metrics, because an absent plan means "the consultant
@@ -88,8 +100,11 @@ has not asked this question", not "data is missing". `sales_plan` present with
 
 ```
 Q    = planned_quantity                      (input, sales_plan)
+u    = units_per_order                       (input, sales_plan; 1 when omitted — §11)
 N    = net_sales_ex_vat per unit             (MODE A's actual_price_ex_vat)
-CMu  = contribution_margin_per_unit          (MODE A semantics, bep/SPEC.md §3)
+CMu  = contribution_margin_per_unit          (MODE A semantics, bep/SPEC.md §3, except that every
+                                              basis=per_order amount in the direct and variable cost
+                                              sums is divided by u — §11)
 FC   = fixed_operating_cost for the period   (bep/SPEC.md §4/7/12)
 Q_BEP = FC / CMu                             (bep/SPEC.md §5, reused unchanged)
 
@@ -140,6 +155,11 @@ is `ERROR`, not `UNKNOWN`.
 | `break_even_quantity_exact` | `CMu`, `FC` (identical to BEP) |
 | `margin_of_safety_quantity` | `Q`, `break_even_quantity_exact` |
 | `margin_of_safety_rate` | `margin_of_safety_quantity`, `Q` |
+
+`units_per_order` is a dependency of the per-unit cost leaf (so of every metric that uses `CMu`): present
+and not a number `> 0` → `ERROR`, code `INVALID_UNITS_PER_ORDER`, dependency
+`sales_plan.units_per_order`. Omitted or `null` is **not** `UNKNOWN` — it means "not provided" and
+falls back to `u = 1` (§11), which keeps every pre-v0.2 input producing the same numbers.
 
 A metric is `UNKNOWN` if any dependency is `UNKNOWN`, `ERROR` if any is `ERROR` (code
 `DOWNSTREAM_*`), per `dependency_rules.md` §1. `null` is never treated as `0`.
@@ -218,44 +238,53 @@ undefined concept.
   `fx.reporting_currency` via `common.convert_to_reporting()`. `planned_quantity` is a count and
   has no currency.
 
-## 11. Per-order costs — the one assumption this module introduces
+## 11. Per-order costs and `units_per_order`
 
 MODE A treats every amount-valued direct/variable cost as a per-unit figure, including items whose
 `basis` is `per_order`. For a single transaction that was harmless. Here it matters: the module
 multiplies `CMu` by `Q`, so a `per_order` shipping cost of 3,000 is multiplied by the number of
 *units*. If customers buy more than one unit per order, shipping is **overstated** and operating
-profit **understated**. The schema has no `units_per_order` field.
+profit **understated**.
 
-**Decision: use the existing `ESTIMATED` metric status; do not silently proceed and do not
-block.** If any contributing `product_service_direct_cost` or `variable_selling_delivery` item has
-`basis = "per_order"`, then every metric that depends on `CMu × Q` (`total_contribution_margin`,
-`operating_profit`, `operating_profit_rate`, `break_even_quantity_exact`,
-`margin_of_safety_quantity`, `margin_of_safety_rate`) is reported with status `ESTIMATED` and a
-non-blocking warning `ASSUMES_ONE_UNIT_PER_ORDER` ("per_order 비용을 주문당 1개 판매로
-가정했습니다. 주문당 구매 수량이 1개보다 크면 비용이 과대 계상됩니다.").
+**v0.2 decision: add `sales_plan.units_per_order` (§3), and use it to convert, not to flag.**
+Every contributing `product_service_direct_cost` or `variable_selling_delivery` item with
+`basis = "per_order"` and a money `amount` contributes `amount / u` to the per-unit cost. Items on any
+other basis (`per_unit`, `rate_of_net_sales`, `rate_of_gross_payment`) and every fixed cost are unchanged.
+`u` is an *average*, so a non-integer value is valid and nothing is rounded.
 
-`ESTIMATED` already exists in `metric_status` ("computed from an assumed/default value rather than
-a confirmed input") and `aggregate_module_status()` treats it like `OK` (neither `ERROR` nor
-`UNKNOWN`), so no change to `common.py` is needed. **This would be the first use of `ESTIMATED`
-by any implemented module** (`mode_a.py` notes it is part of the enum but never produced), so
-the implementation must confirm the status propagates through `result_builder` and the result
-schema without special-casing. Flagged as an open item (§16) rather than assumed.
+| `units_per_order` | a `per_order` item present | Result |
+|---|---|---|
+| provided, `> 0`, `≠ 1` | yes | amounts ÷ `u`; metrics `OK`; non-blocking `info` warning `UNITS_PER_ORDER_APPLIED` |
+| provided, `= 1` | yes | identical to the `per_unit` case; metrics `OK`; no warning |
+| omitted or `null` | yes | `u` assumed `1`; metrics that depend on per-unit cost are `ESTIMATED`; warning `ASSUMES_ONE_UNIT_PER_ORDER` (unchanged from v0.1) |
+| any | no | no effect, no warning |
+| present, not a number `> 0` | any | `ERROR`, `INVALID_UNITS_PER_ORDER` |
 
-`break_even_quantity_exact` is `ESTIMATED` in this module even though BEP itself reports `OK` for
-the same input: BEP's `Q_BEP` is the same arithmetic, so the *value* is identical, but this module
-is the one that states the assumption because it is where the unit-versus-order distinction
-becomes visible to the reader. Whether BEP itself should carry the same warning is a separate
-decision not made here (§16).
+`ESTIMATED` is therefore reserved for the genuinely unknown case. It already exists in `metric_status`
+and `aggregate_module_status()` treats it like `OK`, so no change to `common.py` is needed.
+
+**Deliberate divergence from MODE A and BEP.** MODE A and BEP do not read `sales_plan`; they keep
+treating `per_order` amounts as per-unit (`u = 1`). When `u ≠ 1` and a `per_order` item exists, this
+module's `CMu` and `break_even_quantity_exact` therefore differ from MODE A's contribution margin and
+BEP's quantity in the same Analysis Result. That is intended — they answer a different question — and the
+`UNITS_PER_ORDER_APPLIED` warning says so ("MODE A와 BEP는 per_order 비용을 개당으로 취급합니다"). It
+supersedes the v0.1 statement that this module's break-even equals BEP's: they are equal whenever `u` is
+omitted, equal to `1`, or no `per_order` item exists.
+
+`break_even_quantity_exact` is `ESTIMATED` in this module (when `u` is omitted and a `per_order` item
+exists) even though BEP itself reports `OK` for the same input: the *value* is identical, but this module is
+the one that states the assumption, because it is where the unit-versus-order distinction becomes visible.
+Whether BEP itself should carry the same warning remains a separate decision (§16).
 
 ## 12. Deviations from, and reuse of, existing rules
 
 | Rule | Treatment |
 |---|---|
-| `CMu` aggregation (MODE A semantics) | reused unchanged, via `core/engine/economics.py` |
+| `CMu` aggregation (MODE A semantics) | reused via `core/engine/economics.py`; **one deviation (v0.2)**: `per_order` amounts ÷ `units_per_order`, default `1` = identical to MODE A (§11) |
 | `FC` aggregation (BEP rules incl. `blended_only` → `UNKNOWN`) | reused unchanged semantics; see implementation note below |
 | Multi-component hard gate | same rule, new code `MULTI_COMPONENT_VOLUME_PROFIT_NOT_SUPPORTED` |
 | Negative result handling | **deviates from BEP**: negative margin of safety is `OK` + warning (§8), because it is meaningful |
-| `ESTIMATED` status | **new use** (§11) |
+| `ESTIMATED` status | **new use**, now only when `units_per_order` is omitted and a `per_order` item exists (§11) |
 | Module status | canonical 3-tier via `aggregate_module_status()`, unchanged |
 
 **Implementation note — extracting `_sum_fixed_operating_cost`.** BEP SPEC §12 kept
@@ -277,7 +306,8 @@ total_net_sales_ex_vat       (money)
 total_contribution_margin    (money)
 operating_profit             (money; may be negative)
 operating_profit_rate        (ratio; NOT_APPLICABLE when total net sales = 0)
-break_even_quantity_exact    (units; same value and NOT_APPLICABLE rules as BEP)
+break_even_quantity_exact    (units; BEP's NOT_APPLICABLE rules; equals BEP's value unless
+                              units_per_order differs from 1 and a per_order item exists — §11)
 margin_of_safety_quantity    (units; may be negative)
 margin_of_safety_rate        (ratio; NOT_APPLICABLE when Q = 0)
 ```
@@ -311,6 +341,23 @@ warning `ASSUMES_ONE_UNIT_PER_ORDER` (§11). At `Q = 100` the same example gives
 `operating_profit ≈ −555,682` (status `OK`/`ESTIMATED` per §11) and
 `margin_of_safety_quantity ≈ −38.47` with warning `BELOW_BREAK_EVEN`.
 
+**Example B — `units_per_order = 2` (v0.2).** Same inputs, plus `sales_plan.units_per_order: 2`. Shipping
+becomes 3,000 / 2 = 1,500 per unit; every other figure is unchanged.
+
+```
+CMu   = 31,818.18 − 13,500 − 875 − 1,500 = 15,943.18
+Q_BEP = 2,000,000 / 15,943.18            ≈ 125.45 units
+
+total_contribution_margin = 15,943.18 × 200            = 3,188,636
+operating_profit          = 3,188,636 − 2,000,000      = 1,188,636
+margin_of_safety_quantity = 200 − 125.45               ≈ 74.55 units
+margin_of_safety_rate     = 74.55 / 200                ≈ 37.3 %
+```
+
+All metrics are `OK` (not `ESTIMATED`) because `u` is given; the warning is `UNITS_PER_ORDER_APPLIED`
+(`info`). MODE A's contribution margin and BEP's `Q_BEP` in the same result stay at 14,443.18 and 138.47,
+because they assume one unit per order (§11).
+
 The shipped sample `01_simple_one_time_product.json` has its fixed cost as `shared` +
 `blended_only`, so BEP and this module would both report `UNKNOWN` on it today — a new example
 Client Input with a component-scoped fixed cost is required to exercise the `OK` path (the same
@@ -322,16 +369,18 @@ Not in this phase, design or implementation: Python code, schema/Excel/web chang
 commits, demand or price-elasticity modeling, `target_operating_profit` and the inverse question
 "목표 이익을 위한 필요 판매량", multi-component / blended sales-mix profit (§5 gate), quantity-
 dependent fixed cost (`per_unit_per_month`, step-fixed capacity cost), volume-tiered unit cost or
-volume discounts, periods other than `per_month`, a `units_per_order` field, `total_gross_
+volume discounts, periods other than `per_month`, applying `units_per_order` to MODE A/B/C/BEP (§16), `total_gross_
 payment_incl_vat` (§10), Scenario Compare integration (a scenario overriding `planned_quantity`
 is the natural next step, but needs its own SPEC revision), and a real shared-cost allocation
 engine (still `NOT_IMPLEMENTED` everywhere).
 
 ## 16. Open design items (explicit, not silently resolved)
 
-1. **`units_per_order`.** The `ESTIMATED` workaround (§11) is an honest stopgap, not a fix.
-   Whether to add the field, and whether it belongs to the price component or to each cost item,
-   is undecided.
+1. **`units_per_order`.** *Decided in v0.2:* `sales_plan.units_per_order`, applied only by Volume Profit
+   (§3, §11). Still open: whether MODE A/B/C/BEP should read it too, so every module in one Analysis Result
+   agrees. Not done because it changes implemented, tested modules and their Excel parity, and it forces a
+   decision on what an order size means for MODE A's single-transaction diagnosis. Also open: Excel and the
+   web calculator do not model it yet (they keep the one-unit-per-order assumption and `ESTIMATED`).
 2. **First use of `ESTIMATED`.** *Python side confirmed:* `result_builder.py`,
    `analysis_result.schema.json`, and `aggregate_module_status()` handle it with no special-casing
    (tests assert module status stays `OK`). Excel and any future dashboard consumer are not
@@ -346,11 +395,10 @@ engine (still `NOT_IMPLEMENTED` everywhere).
    modeling it requires deciding how `FC(Q)` interacts with `Q_BEP = FC / CMu`, which becomes
    circular if `FC` depends on `Q`.
 6. **Multi-period support.** Needs a `per_year` (or similar) cost basis in the schema first.
-7. **Schema version.** `1.1` → `1.2` is additive-only: `sales_plan` and `volume_profit` are both
-   optional, so every existing `1.1` Client Input and Analysis Result stays valid. No code in the
-   repository pins `1.1`. `result_builder` now stamps `1.2` and `ENGINE_VERSION` is `0.5.0`. The
-   root README's version table and test-count baseline still describe `1.1` / 160 tests and have
-   not been updated.
+7. **Schema version.** `1.1` → `1.2` (v0.1, `sales_plan` and `volume_profit`) and `1.2` → `1.3` (v0.2,
+   `units_per_order`) are additive-only: every new field is optional, so every existing `1.1` and `1.2`
+   Client Input and Analysis Result stays valid. No code in the repository pins an older version.
+   `result_builder` stamps `1.3` and `ENGINE_VERSION` is `0.6.0`.
 
 ## 17. Master Note boundary
 
