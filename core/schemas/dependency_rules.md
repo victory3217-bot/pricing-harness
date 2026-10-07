@@ -234,10 +234,19 @@ asked); more than one `product.price_components` entry -> `ERROR`,
 not clamped — unlike `break_even_quantity_exact`, which keeps BEP's §7 rule (`NOT_APPLICABLE` for
 `CMu <= 0`). A plan below break-even adds the non-blocking warning `BELOW_BREAK_EVEN`.
 
-**`ESTIMATED` is used for the first time here:** any contributing `product_service_direct_cost` or
-`variable_selling_delivery` item with `basis = per_order` makes every metric that depends on
-per-unit cost `ESTIMATED` (one unit per order is assumed), with the non-blocking warning
-`ASSUMES_ONE_UNIT_PER_ORDER`. `ESTIMATED` does not lower module status (§5).
+**`per_order` costs and `sales_plan.units_per_order`:** every contributing
+`product_service_direct_cost` or `variable_selling_delivery` item with `basis = per_order` has its
+amount divided by `units_per_order` before it enters the per-unit cost; items on any other basis and
+all fixed costs are untouched. Provided and `> 0` → the metrics are `OK` (with an `info` warning
+`UNITS_PER_ORDER_APPLIED` when the value is not `1`). Omitted or `null` is **not** `UNKNOWN`: one unit
+per order is assumed and every metric that depends on per-unit cost is `ESTIMATED` (the first use of
+`ESTIMATED`), with the non-blocking warning `ASSUMES_ONE_UNIT_PER_ORDER`. A value that is present but
+not a number `> 0` is `ERROR` (`INVALID_UNITS_PER_ORDER`). `ESTIMATED` does not lower module status (§5).
+
+**MODE A and BEP do not read `units_per_order`** and keep treating `per_order` amounts as per-unit, so
+with `units_per_order ≠ 1` Volume Profit's per-unit contribution margin and break-even quantity differ
+from theirs in the same Analysis Result. That divergence is deliberate and documented in
+`docs/features/volume_profit/SPEC.md` §11.
 
 **Warning ownership:** each root cause is warned once, on the metric that owns that input
 (`planned_quantity`, `total_net_sales_ex_vat`, `total_contribution_margin`, `operating_profit`);

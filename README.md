@@ -285,8 +285,8 @@ python core/schemas/validate_examples.py  # schema validation of every shipped e
 Audited baseline as of this repository state (not a permanent guarantee — re-run to confirm
 against whatever commit you have checked out):
 
-- `pytest`: 188 passed
-- schema validation: ALL 14 CHECKS PASSED
+- `pytest`: 198 passed
+- schema validation: ALL 15 CHECKS PASSED
 - MODE A / MODE B Excel QA: PASS
 - MODE C Excel QA: 20/20 PASS
 - BEP Excel QA: PASS
@@ -310,8 +310,11 @@ against whatever commit you have checked out):
   the allocation-status states (`none`/`unresolved`/`invalid`) as test controls, and the Python
   Core does not yet allocate a shared cost item across components.
 - **Volume Profit** is not part of Scenario Compare yet. It is single-component and supports only
-  the `per_month` period, and any `per_order` cost makes its quantity-dependent metrics `ESTIMATED`
-  (one unit per order is assumed). Its Excel sheets compare values, statuses and module status
+  the `per_month` period. A `per_order` cost is divided by `sales_plan.units_per_order` when you give
+  it; without it, one unit per order is assumed and the quantity-dependent metrics are `ESTIMATED`.
+  MODE A and BEP do not read `units_per_order`, so with a value other than 1 they differ from Volume
+  Profit in the same result. The Excel sheets and the web calculator do not model `units_per_order`
+  yet (they keep the one-unit-per-order assumption). Its Excel sheets compare values, statuses and module status
   with the Python Core, but not warning codes.
 - `build_workbook.py` has an import-time side effect (importing the module regenerates and saves
   the workbook) — always run it as a script (`python tools/excel_simulator/build_workbook.py`),
@@ -325,9 +328,9 @@ meant to match each other, and none of them should be read as covering what anot
 | Axis | Current value | Source of truth | What it tracks |
 |---|---|---|---|
 | **Product release** | `0.1.0-beta.6` | root [`VERSION`](VERSION) file, tagged in git as `v0.1.0-beta.6` | The Pricing Harness as a whole (Python Core + schemas + Excel Simulator + docs) at a point in time. This is the sanitized public repository's release identity — current maturity is **Limited/Beta**. |
-| Python engine marker | `0.5.0` | `ENGINE_VERSION` in [`core/engine/result_builder.py`](core/engine/result_builder.py) | The calculation engine's own internal iteration, stamped into every generated Analysis Result's `source.engine_version` field. |
+| Python engine marker | `0.6.0` | `ENGINE_VERSION` in [`core/engine/result_builder.py`](core/engine/result_builder.py) | The calculation engine's own internal iteration, stamped into every generated Analysis Result's `source.engine_version` field. |
 | Excel Simulator artifact | `v0.6` | the workbook's own filename, `Pricing_Harness_Excel_Simulator_v0.6.xlsx` | This specific Excel build's own iteration, independent of the Python engine or the product release. |
-| Schema / data contract | `1.2` | `schema_version` field inside every Client Input / Analysis Result / Scenario Compare document | The *shape* of the JSON documents flowing through the system — a data-compatibility version, not a software release. `1.2` added the optional `sales_plan` (Client Input) and `volume_profit` (Analysis Result); every `1.1` document remains valid. |
+| Schema / data contract | `1.3` | `schema_version` field inside every Client Input / Analysis Result / Scenario Compare document | The *shape* of the JSON documents flowing through the system — a data-compatibility version, not a software release. `1.2` added the optional `sales_plan` (Client Input) and `volume_profit` (Analysis Result); `1.3` added the optional `sales_plan.units_per_order`. Every earlier document remains valid. |
 
 These four numbers will drift apart over time by design: a schema migration, an engine-only
 formula fix, and an Excel-only build can each happen without changing the other axes. Read the
