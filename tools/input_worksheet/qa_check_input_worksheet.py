@@ -159,22 +159,22 @@ def fill(s, path):
         w1[A1[k].replace("$", "")] = s[k]
     for i, (a, amt) in enumerate(s["make"]):
         r = LAY[S1]["make"][0] + i
-        w1.cell(r, 1, a), w1.cell(r, 3, amt)
+        w1.cell(r, 1, a), w1.cell(r, 2, amt)
     for i, (a, amt, kind) in enumerate(s["sell"]):
         r = LAY[S1]["sell"][0] + i
-        w1.cell(r, 1, a), w1.cell(r, 3, amt), w1.cell(r, 4, kind)
+        w1.cell(r, 1, a), w1.cell(r, 2, amt), w1.cell(r, 3, kind)
     for i, (a, amt) in enumerate(s["fixed"]):
         r = LAY[S1]["fixed"][0] + i
-        w1.cell(r, 1, a), w1.cell(r, 3, amt)
+        w1.cell(r, 1, a), w1.cell(r, 2, amt)
     for k in ("q", "m", "o_price", "life", "o_fl", "o_bn", "o_bg", "o_fixed"):
         if s[k] is not None:
             w2[R2[k].replace("$", "")] = s[k]
     for i, (a, amt) in enumerate(s["rep"]):
         r = LAY[S2]["repeat"][0] + i
-        w2.cell(r, 1, a), w2.cell(r, 3, amt)
+        w2.cell(r, 1, a), w2.cell(r, 2, amt)
     for i, (a, amt) in enumerate(s["invest"]):
         r = LAY[S2]["invest"][0] + i
-        w2.cell(r, 1, a), w2.cell(r, 3, amt)
+        w2.cell(r, 1, a), w2.cell(r, 2, amt)
     wb.save(path)
 
 
