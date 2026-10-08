@@ -10,6 +10,7 @@ plus the panels' own arithmetic, the 비교 tab, and the verdict text branches.
 Run: python tools/input_worksheet/qa_check_input_worksheet.py
 """
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -65,6 +66,8 @@ SCENARIOS = [
        sell=[("플랫폼", 8, K_NET), ("PG", 3, K_GROSS), ("택배", 2500, K_FLAT)], fixed=[("임대", 500_000)],
        q=800, m=120, o_price=29000, rep=[("재료", 8_000_000)], o_fl=1800, o_bn=6, o_bg=2, o_fixed=700_000),
     sc("cm <= 0", make=[("재료", 9_000_000)], fixed=[("임대", 300_000)], q=500, m=100, rep=[("재료", 20_000_000)]),
+    sc("whole numbers (no trailing dot)", t=2, price=11, make=[("재료", 20)], fixed=[("고정", 30)],
+       q=100, m=50, rep=[("재료", 100)]),
     sc("service", biz="서비스", n=30, t=3, make=[("개발 인건비", 15_000_000)], fixed=[("툴", 200_000)],
        q=100, m=25, rep=[("건당 인건비", 1_000_000)]),
 ]
@@ -194,6 +197,29 @@ def close(a, b, tol=1e-6):
     return isinstance(a, (int, float)) and b is not None and abs(a - b) <= tol * max(1.0, abs(b))
 
 
+def clipboard_text(ws, title_prefix):
+    """The calculator-values table as it would arrive from a spreadsheet copy: label TAB displayed value."""
+    start = next(r for r in range(1, ws.max_row + 1) if str(ws.cell(r, 1).value or "").startswith(title_prefix))
+    lines, r = [], start + 2
+    while ws.cell(r, 2).fill.fgColor.rgb[-6:] == "E6EEE9" and ws.cell(r, 1).value:
+        v, fmt = ws.cell(r, 2).value, ws.cell(r, 2).number_format
+        if v is None or v == "":
+            shown = ""
+        elif isinstance(v, (int, float)):
+            shown = f"{v:,.0f}" if fmt == "#,##0" else f"{v:,.1f}" if fmt in ("#,##0.0", "0.0") else f"{v:g}"
+        else:
+            shown = str(v)
+        lines.append(f"{ws.cell(r, 1).value}\t{shown}")
+        r += 1
+    return "\n".join(lines)
+
+
+def parse_paste(text):
+    out = subprocess.run(["node", str(HERE / "paste_parse_runner.js")], input=text, capture_output=True, text=True,
+                         encoding="utf-8", check=True).stdout
+    return json.loads(out)
+
+
 def main():
     shutil.rmtree(SCRATCH, ignore_errors=True)
     SCRATCH.mkdir()
@@ -240,6 +266,26 @@ def main():
             bad.append("비교:bem1")
         if not close(cmpv("saving", "C"), ex["saving"]):
             bad.append("비교:saving")
+        # the calculator's paste parser reads each sheet's calculator-values table back to the same numbers
+        v1p = parse_paste(clipboard_text(wb[S1], "5. 계산기에 입력할 값"))
+        want = {"price": s["price"], "vat": s["vat"], "inc": s["inc"] == "예", "direct": ex["u_all"],
+                "flat": ex["fl"], "net": ex["bn"] * 100, "gross": ex["bg"] * 100, "fixed": ex["fm1"], "qty": s["n"] / s["t"]}
+        for k, w_ in want.items():
+            got = v1p["values"].get(k)
+            ok = got is w_ if isinstance(w_, bool) else (got is not None and abs(got - w_) <= max(0.5, abs(w_) * 1e-3))
+            if not ok:
+                bad.append(f"paste(초도):{k} got={got} want={w_}")
+        if v1p["unmatched"] or v1p["skipped"]:
+            bad.append(f"paste(초도) unmatched={v1p['unmatched']} skipped={v1p['skipped']}")
+        v2p = parse_paste(clipboard_text(wb[S2], "6. 계산기에 입력할 값"))
+        want2 = {"price": s["o_price"] if s["o_price"] is not None else s["price"], "vat": s["vat"],
+                 "inc": s["inc"] == "예", "direct": ex["u2"], "flat": ex["f2"], "net": ex["bn2"] * 100,
+                 "gross": ex["bg2"] * 100, "fixed": ex["fm2"], "qty": s["m"]}
+        for k, w_ in want2.items():
+            got = v2p["values"].get(k)
+            ok = got is w_ if isinstance(w_, bool) else (got is not None and abs(got - w_) <= max(0.5, abs(w_) * 1e-3))
+            if not ok:
+                bad.append(f"paste(양산):{k} got={got} want={w_}")
         # verdict text branches
         v1 = str(g1("verdict"))
         want1 = ("판매 단위당 남는 금액이 0 이하" if ex["w"] <= 0 else
@@ -251,6 +297,12 @@ def main():
                  "본전이 안 됩니다" if ex["bem2"] / s["m"] > 1 else "본전 가능")
         if want2 not in v2:
             bad.append("양산 verdict text")
+        cmp_text = str(wb[S3]["B" + LAY[S3]["REF"]["verdict"].split("$")[-1]].value)
+        for label, txt in (("초도", v1), ("양산", v2), ("비교", cmp_text)):
+            if re.search(r"\d\.(?!\d)", txt):
+                bad.append(f"{label} text has a trailing dot after a number: {txt[:60]}")
+        if s["name"].startswith("whole numbers") and "누적 8단위(월 4단위)" not in v1:
+            bad.append("whole-number text should read 누적 8단위(월 4단위)")
         errs = [(sh.title, c.coordinate) for sh in wb.worksheets for row in sh.iter_rows() for c in row
                 if isinstance(c.value, str) and c.value.startswith("#")]
         if errs:

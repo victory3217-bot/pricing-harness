@@ -174,6 +174,17 @@
     font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
   }
   .add-btn:hover{ background: var(--accent-soft); }
+  .paste-box{ margin: 0; padding: 10px 20px; border-bottom: 1px solid var(--border); }
+  .paste-box summary{ cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent-strong); }
+  .paste-box .section-hint{ margin: 10px 0 8px; }
+  .paste-box textarea{
+    width: 100%; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; resize: vertical;
+    background: var(--surface-sunken); color: var(--text); border: 1px solid var(--border);
+    border-radius: var(--radius-s); padding: 8px 10px;
+  }
+  .paste-box textarea:focus{ outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .paste-status{ margin: 8px 0 0; font-size: 12px; line-height: 1.55; color: var(--text-muted); }
+  .paste-status.warn{ color: var(--warn); }
   .auto-note{
     margin: 0; padding: 10px 20px; font-size: 12.5px; font-weight: 500; line-height: 1.5;
     color: var(--accent-strong); background: var(--accent-soft);
@@ -290,6 +301,13 @@
     <!-- INPUT PANEL -->
     <div class="panel" id="input-panel">
       <p class="auto-note" data-i18n="auto_note"></p>
+      <details class="paste-box" id="paste-box">
+        <summary data-i18n="paste_title"></summary>
+        <p class="section-hint" data-i18n="paste_hint"></p>
+        <textarea id="paste-input" rows="6" spellcheck="false" data-i18n-placeholder="paste_ph"></textarea>
+        <button class="add-btn" id="paste-apply" type="button" data-i18n="paste_btn"></button>
+        <p class="paste-status" id="paste-status" role="status" aria-live="polite"></p>
+      </details>
       <div class="panel-section">
         <h2 data-i18n="sec_price"></h2>
         <div class="field">
@@ -394,6 +412,16 @@
       dl_sheet: "⬇ 입력 정리 시트 받기 (.xlsx)",
       dl_sheet_title: "빈 양식 파일을 내려받습니다. 입력한 내용은 내 컴퓨터에만 저장되며 어디에도 전송되지 않습니다.",
       auto_note: "값을 입력하면 결과가 자동으로 계산됩니다 (계산 버튼 없음).",
+      paste_title: "시트 값 붙여넣기 (입력 정리 시트에서 옮기기)",
+      paste_hint: "입력 정리 시트 5번 \"계산기에 입력할 값\" 표(라벨과 값 두 열)를 복사해 아래에 붙여넣고 버튼을 누르면 판매가·직접원가·변동비·고정비·판매량이 한 번에 채워집니다. 붙여넣은 내용은 이 브라우저 안에서만 읽으며 어디에도 전송되지 않습니다. 기존 입력값은 바뀝니다.",
+      paste_ph: "실제 판매가 (KRW)\t35000\n부가세율 (%)\t10\n…",
+      paste_btn: "붙여넣은 값으로 채우기",
+      paste_none: "읽을 수 있는 줄이 없습니다. 시트 5번 표를 라벨(왼쪽 열)과 함께 복사했는지 확인하세요.",
+      paste_ok: (n) => `${n}개 항목을 채웠습니다.`,
+      paste_skipped: (list) => ` 값이 비어 있어 건너뜀: ${list}.`,
+      paste_unmatched: (list) => ` 읽지 못한 줄: ${list}.`,
+      item_sheet_direct: "직접원가 (시트)", item_sheet_flat: "정액 (시트)", item_sheet_order: "정액 주문당 (시트)",
+      item_sheet_net: "순매출 대비 (시트)", item_sheet_gross: "지불액 대비 (시트)",
       sec_price: "판매가 & 부가세",
       lbl_price: "실제 판매가 (KRW)",
       lbl_vat: "부가세율 (%)",
@@ -489,6 +517,16 @@
       dl_sheet: "⬇ Get the input worksheet (.xlsx)",
       dl_sheet_title: "Downloads a blank template (labels are mostly Korean with English hints). What you type stays on your own computer and is never sent anywhere.",
       auto_note: "Results update automatically as you type — there is no calculate button.",
+      paste_title: "Paste worksheet values (copy from the input worksheet)",
+      paste_hint: "Copy the table in section 5 of the input worksheet (label and value columns), paste it below and press the button to fill selling price, direct cost, variable cost, fixed cost and volume at once. The text is read inside this browser only and is never sent anywhere. Existing inputs will be replaced. The worksheet labels are Korean, so keep the label column when you copy.",
+      paste_ph: "실제 판매가 (KRW)\t35000\n부가세율 (%)\t10\n…",
+      paste_btn: "Fill from pasted values",
+      paste_none: "No readable lines found. Make sure you copied the section 5 table together with its label column (left).",
+      paste_ok: (n) => `Filled ${n} items.`,
+      paste_skipped: (list) => ` Skipped (empty value): ${list}.`,
+      paste_unmatched: (list) => ` Could not read: ${list}.`,
+      item_sheet_direct: "Direct cost (worksheet)", item_sheet_flat: "Fixed per unit (worksheet)", item_sheet_order: "Fixed per order (worksheet)",
+      item_sheet_net: "% of net sales (worksheet)", item_sheet_gross: "% of gross payment (worksheet)",
       sec_price: "Selling price & VAT",
       lbl_price: "Actual selling price (KRW)",
       lbl_vat: "VAT rate (%)",
@@ -684,6 +722,90 @@
 
   $("#add-direct").onclick = () => { directItems.push({labelKey:"item_new", amount:0}); renderDirectItems(); compute(); };
   $("#add-variable").onclick = () => { variableItems.push({labelKey:"item_new", kind:"flat", amount:0, rate:null}); renderVariableItems(); compute(); };
+
+  // ---------- paste from the input worksheet ----------
+  // <paste-parser> (pure function; tools/input_worksheet/qa_check_paste_parser.js runs it under node)
+  function parseSheetPaste(text){
+    const num = (v) => {
+      const c = String(v == null ? "" : v).replace(/[,\s%]/g, "").replace(/(원|KRW)$/i, "");
+      if (c === "") return null;
+      const n = Number(c);
+      return Number.isFinite(n) ? n : null;
+    };
+    const classify = (label) => {
+      if (/^실제\s*판매가/.test(label)) return "price";
+      if (/^부가세율/.test(label)) return "vat";
+      if (/^VAT\s*포함가/i.test(label)) return "inc";
+      if (/^직접원가/.test(label)) return "direct";
+      if (/^변동비\s*:\s*정액\s*\(\s*주문당/.test(label)) return "order";
+      if (/^변동비\s*:\s*정액/.test(label)) return "flat";
+      if (/^변동비\s*:\s*순매출/.test(label)) return "net";
+      if (/^변동비\s*:\s*지불액/.test(label)) return "gross";
+      if (/^월\s*고정운영비/.test(label)) return "fixed";
+      if (/^월\s*계획\s*판매량/.test(label)) return "qty";
+      return null;
+    };
+    const out = { values: {}, skipped: [], unmatched: [], recognized: 0 };
+    String(text || "").split(/\r?\n/).forEach(line => {
+      if (!line.trim()) return;
+      let cells = line.split("\t").map(c => c.trim());
+      if (cells.length < 2) cells = line.trim().split(/\s{2,}/);
+      if (cells.length < 2) return;
+      const label = cells[0];
+      const kind = classify(label);
+      const raw = cells.slice(1).find(c => c !== "");
+      if (!kind) { out.unmatched.push(label); return; }
+      out.recognized++;
+      if (kind === "inc") {
+        if (/^(체크|예|true|y|yes)$/i.test(raw || "")) out.values.inc = true;
+        else if (/^(해제|아니오|false|n|no)$/i.test(raw || "")) out.values.inc = false;
+        else out.skipped.push(label);
+        return;
+      }
+      const n = num(raw);
+      if (n === null) out.skipped.push(label); else out.values[kind] = n;
+    });
+    return out;
+  }
+  // </paste-parser>
+
+  function applyPastedValues(){
+    const status = $("#paste-status");
+    const res = parseSheetPaste($("#paste-input").value);
+    if (res.recognized === 0) {
+      status.textContent = t("paste_none");
+      status.className = "paste-status warn";
+      return;
+    }
+    const v = res.values;
+    let filled = 0;
+    const setNum = (sel, n) => { $(sel).value = n; filled++; };
+    if ("price" in v) setNum("#price", v.price);
+    if ("vat" in v) setNum("#vat", v.vat);
+    if ("inc" in v) { $("#includesVat").checked = v.inc; filled++; }
+    if ("direct" in v) { directItems = [{ labelKey: "item_sheet_direct", amount: v.direct }]; filled++; }
+    const varKinds = [["flat", "flat", "item_sheet_flat"], ["order", "per_order", "item_sheet_order"],
+                      ["net", "net_sales", "item_sheet_net"], ["gross", "gross_payment", "item_sheet_gross"]];
+    if (varKinds.some(([k]) => k in v)) {
+      variableItems = [];
+      varKinds.forEach(([k, kind, key]) => {
+        if (!(k in v)) return;
+        filled++;
+        if (v[k] === 0) return;
+        const isRate = kind === "net_sales" || kind === "gross_payment";
+        variableItems.push({ labelKey: key, kind, amount: isRate ? null : v[k], rate: isRate ? v[k] : null });
+      });
+    }
+    if ("fixed" in v) setNum("#fixedCost", v.fixed);
+    if ("qty" in v) setNum("#plannedQty", v.qty);
+    renderDirectItems(); renderVariableItems(); compute();
+    let msg = t("paste_ok", filled);
+    if (res.skipped.length) msg += t("paste_skipped", res.skipped.join(", "));
+    if (res.unmatched.length) msg += t("paste_unmatched", res.unmatched.join(", "));
+    status.textContent = msg;
+    status.className = "paste-status" + (res.skipped.length || res.unmatched.length ? " warn" : "");
+  }
+  $("#paste-apply").onclick = applyPastedValues;
 
   // ---------- tabs ----------
   const tabIds = ["a","b","c","bep","vp"];
@@ -977,6 +1099,7 @@
     document.documentElement.lang = LANG;
     document.title = t("title");
     $$("[data-i18n]").forEach(el => { el.textContent = t(el.getAttribute("data-i18n")); });
+    $$("[data-i18n-placeholder]").forEach(el => { el.placeholder = t(el.getAttribute("data-i18n-placeholder")); });
     $$("[data-i18n-title]").forEach(el => { el.title = t(el.getAttribute("data-i18n-title")); });
     $$("[data-i18n-html]").forEach(el => { el.innerHTML = t(el.getAttribute("data-i18n-html")); });
     $$("[data-lang-btn]").forEach(b => b.setAttribute("aria-pressed", b.getAttribute("data-lang-btn") === LANG ? "true" : "false"));
