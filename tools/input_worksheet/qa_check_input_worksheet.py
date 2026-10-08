@@ -1,10 +1,11 @@
-"""QA for the input worksheet's verdict panel.
+"""QA for the input worksheet (초도 / 양산 / 비교 tabs).
 
 Fills the blank template with scenario inputs, recalculates it headless with LibreOffice, and
-compares the panel against the Python Core:
-  - cm (개당 공헌이익) and monthly break-even quantity  <-> core/engine/modes/bep.py (run_bep)
-  - break-even selling price (target rate 0)            <-> core/engine/modes/mode_b.py (run_mode_b)
-plus the panel's own arithmetic (totals, amortization, verdict text branches).
+compares the panels against the Python Core:
+  - 초도: 판매 1개당 남는 금액 and cumulative break-even quantity <-> core/engine/modes/bep.py
+          (direct cost 0, fixed = total to recover), break-even price <-> mode_b.py (target rate 0)
+  - 양산: cm and monthly break-even <-> bep.py, break-even price <-> mode_b.py
+plus the panels' own arithmetic, the 비교 tab, and the verdict text branches.
 
 Run: python tools/input_worksheet/qa_check_input_worksheet.py
 """
@@ -36,104 +37,144 @@ TEMPLATE = ROOT / "docs" / "calculator" / "Pricing_Input_Worksheet.xlsx"
 
 subprocess.run([sys.executable, str(HERE / "build_input_worksheet.py")], check=True, capture_output=True)
 LAY = json.loads((HERE / "_layout.json").read_text(encoding="utf-8"))
-A, REF = LAY["A"], LAY["REF"]
+S1, S2, S3 = "초도", "양산", "비교"
+A1, R1 = LAY[S1]["A"], LAY[S1]["REF"]
+R2 = LAY[S2]["REF"]
+CR = LAY[S3]["rows"]
+
+K_ONCE, K_FLAT, K_ORDER = "런칭 전 총액", "판매 시 정액 (개당)", "판매 시 정액 (주문당)"
+K_NET, K_GROSS = "판매 시 순매출 대비 %", "판매 시 지불액 대비 %"
 
 
-def cellv(ws, addr):
-    return ws[addr.replace("$", "")].value
-
-
-def scenario(name, **kw):
-    base = dict(biz="제조", n=200, t=6, life=24, basis=None, price=35000, vat=10, inc="예",
-                make=[], sell=[], fixed=[])
+def sc(name, **kw):
+    base = dict(biz="제조", n=200, t=6, price=35000, vat=10, inc="예", make=[], sell=[], fixed=[],
+                q=None, m=None, o_price=None, rep=[], invest=[], life=None,
+                o_fl=None, o_bn=None, o_bg=None, o_fixed=None)
     base.update(kw)
     base["name"] = name
     return base
 
 
-VAR, ONE = "수량비례 제작비", "일회성 투자"
 SCENARIOS = [
-    scenario("base: unit costs only", make=[("재료", 3_000_000, VAR), ("가공", 1_000_000, VAR)],
-             sell=[("결제수수료", 2.5, "판매 시 지불액 대비 %"), ("배송", 3000, "판매 시 정액 (개당)")],
-             fixed=[("임대", 300_000)]),
-    scenario("with investment, basis=소진기간", make=[("재료", 3_000_000, VAR), ("금형", 6_000_000, ONE)],
-             sell=[("입점", 1_200_000, "런칭 전 일회성"), ("수수료", 10, "판매 시 순매출 대비 %")],
-             fixed=[("임대", 300_000), ("툴", 100_000)]),
-    scenario("with investment, basis=수명주기", basis="수명주기", make=[("재료", 3_000_000, VAR), ("금형", 6_000_000, ONE)],
-             sell=[("입점", 1_200_000, "런칭 전 일회성"), ("수수료", 10, "판매 시 순매출 대비 %"),
-                   ("택배", 2500, "판매 시 정액 (주문당)")], fixed=[("임대", 300_000)]),
-    scenario("price excl VAT", inc="아니오", price=31818.18, make=[("재료", 4_000_000, VAR)],
-             sell=[("PG", 3, "판매 시 지불액 대비 %"), ("플랫폼", 8, "판매 시 순매출 대비 %")], fixed=[("임대", 500_000)]),
-    scenario("cm <= 0", make=[("재료", 9_000_000, VAR)], fixed=[("임대", 300_000)]),
-    scenario("cannot break even within N", n=20, make=[("재료", 400_000, VAR), ("금형", 8_000_000, ONE)], fixed=[("임대", 500_000)]),
-    scenario("feasible within N", n=500, make=[("재료", 5_000_000, VAR)], fixed=[("임대", 300_000)],
-             sell=[("결제수수료", 2.5, "판매 시 지불액 대비 %")]),
-    scenario("service", biz="서비스", n=30, t=3, make=[("개발 인건비", 15_000_000, ONE)], fixed=[("툴", 200_000)]),
+    sc("base: cannot break even", make=[("재료", 4_000_000), ("금형", 5_000_000)],
+       sell=[("PG", 2.5, K_GROSS), ("입점", 800_000, K_ONCE)], fixed=[("임대", 300_000)],
+       q=1000, m=150, rep=[("재료", 15_000_000)]),
+    sc("feasible", n=500, make=[("재료", 5_000_000)], sell=[("PG", 2.5, K_GROSS), ("배송", 3000, K_FLAT)],
+       fixed=[("임대", 300_000)], q=2000, m=300, rep=[("재료", 16_000_000)], invest=[("증설", 6_000_000)], life=24),
+    sc("price excl VAT + overrides", inc="아니오", price=31818.18, make=[("재료", 4_000_000)],
+       sell=[("플랫폼", 8, K_NET), ("PG", 3, K_GROSS), ("택배", 2500, K_ORDER)], fixed=[("임대", 500_000)],
+       q=800, m=120, o_price=29000, rep=[("재료", 8_000_000)], o_fl=1800, o_bn=6, o_bg=2, o_fixed=700_000),
+    sc("cm <= 0", make=[("재료", 9_000_000)], fixed=[("임대", 300_000)], q=500, m=100, rep=[("재료", 20_000_000)]),
+    sc("service", biz="서비스", n=30, t=3, make=[("개발 인건비", 15_000_000)], fixed=[("툴", 200_000)],
+       q=100, m=25, rep=[("건당 인건비", 1_000_000)]),
 ]
 
 
-def expected(sc):
-    """Independent re-statement of the panel arithmetic (no engine)."""
-    v = sc["vat"] / 100
-    net = sc["price"] / (1 + v) if sc["inc"] == "예" else sc["price"]
-    gross = sc["price"] if sc["inc"] == "예" else sc["price"] * (1 + v)
-    make_var = sum(a for _, a, k in sc["make"] if k == VAR)
-    once = sum(a for _, a, k in sc["make"] if k == ONE) + sum(a for _, a, k in sc["sell"] if k == "런칭 전 일회성")
-    fl = sum(a for _, a, k in sc["sell"] if k in ("판매 시 정액 (개당)", "판매 시 정액 (주문당)"))
-    bn = sum(a for _, a, k in sc["sell"] if k == "판매 시 순매출 대비 %") / 100
-    bg = sum(a for _, a, k in sc["sell"] if k == "판매 시 지불액 대비 %") / 100
-    fixed = sum(a for _, a in sc["fixed"])
-    u = make_var / sc["n"]
-    cm = net - u - fl - bn * net - bg * gross
-    rec = sc["life"] if sc["basis"] == "수명주기" else sc["t"]
-    fm = fixed + once / rec
-    bem = fm / cm if cm > 0 else None
+def expected(s):
+    v = s["vat"] / 100
+    f = (1 + v) if s["inc"] == "예" else 1
+    P = s["price"]
+    net = P / (1 + v) if s["inc"] == "예" else P
+    gross = P if s["inc"] == "예" else P * (1 + v)
+    make = sum(a for _, a in s["make"])
+    once = sum(x for _, x, k in s["sell"] if k == K_ONCE)
+    fl = sum(x for _, x, k in s["sell"] if k == K_FLAT)
+    po = sum(x for _, x, k in s["sell"] if k == K_ORDER)
+    bn = sum(x for _, x, k in s["sell"] if k == K_NET) / 100
+    bg = sum(x for _, x, k in s["sell"] if k == K_GROSS) / 100
+    F = sum(a for _, a in s["fixed"])
+    sv = fl + po + bn * net + bg * gross
+    w = net - sv
+    tot = make + once + F * s["t"]
+    out = {"net": net, "s": sv, "w": w, "tot": tot}
+    out["beq"] = tot / w if w > 0 else None
+    out["pct"] = out["beq"] / s["n"] if out["beq"] is not None else None
+    out["bem"] = out["beq"] / s["t"] if out["beq"] is not None else None
+    out["pl"] = s["n"] * w - tot
     D = 1 - bn - bg * (1 + v)
-    net_be = (u + fl + fm * sc["t"] / sc["n"]) / D
-    price_be = net_be * (1 + v) if sc["inc"] == "예" else net_be
-    return dict(u=u, cm=cm, fm=fm, bem=bem, becum=None if bem is None else bem * sc["t"],
-                pl=sc["n"] * cm - fm * sc["t"], price_be=price_be, fl=fl, bn=bn, bg=bg, net=net, gross=gross)
-
-
-def engine(sc, ex):
-    """Run the Python Core on the same economics (direct cost = u, flat variable, rates, fixed = fm)."""
-    out = {}
-    ci = make_client_input_bep(
-        actual_price=sc["price"], includes_vat=(sc["inc"] == "예"), vat_rate=sc["vat"] / 100, direct_cost=ex["u"],
-        variable_fixed_cost=ex["fl"], net_sales_fee_rate=ex["bn"], gross_payment_fee_rate=ex["bg"],
-        fixed_operating_cost=ex["fm"])
-    m = run_bep(ci)["per_component"]["main"]
-    out["cm"] = m["contribution_margin_per_unit"]["value"]
-    out["bem"] = m["break_even_quantity_exact"]["value"] if m["break_even_quantity_exact"]["status"] == "OK" else None
-    try:
-        cb = make_client_input_b(
-            target_cm_rate=0.0, direct_cost=ex["u"] + ex["fm"] * sc["t"] / sc["n"], net_sales_fee_rate=ex["bn"],
-            gross_payment_fee_rate=ex["bg"], vat_rate=sc["vat"] / 100, includes_vat=(sc["inc"] == "예"))
-        # direct_cost above folds the per-unit flat variable amount in through the same slot
-        cb["costs"]["items"][0]["amount"] += ex["fl"]
-        rb = run_mode_b(cb)["per_component"]["main"]
-        k = "required_selling_price"
-        out["price_be"] = rb[k]["value"] if rb[k]["status"] == "OK" else None
-    except Exception as exc:  # engine may reject a 0 target rate; reported, not hidden
-        out["price_be_error"] = repr(exc)
+    out["price_be"] = f * ((tot / s["n"]) + fl + po) / D
+    out["u_all"] = make / s["n"]
+    out["fm1"] = F + once / s["t"]
+    out["cm1"] = net - out["u_all"] - sv
+    out["bem1"] = out["fm1"] / out["cm1"] if out["cm1"] > 0 else None
+    # --- scale
+    P2 = s["o_price"] if s["o_price"] is not None else P
+    net2 = P2 / (1 + v) if s["inc"] == "예" else P2
+    gross2 = P2 if s["inc"] == "예" else P2 * (1 + v)
+    rep = sum(a for _, a in s["rep"])
+    inv = sum(a for _, a in s["invest"])
+    fl2 = s["o_fl"] if s["o_fl"] is not None else fl + po
+    bn2 = (s["o_bn"] if s["o_bn"] is not None else bn * 100) / 100
+    bg2 = (s["o_bg"] if s["o_bg"] is not None else bg * 100) / 100
+    F2 = s["o_fixed"] if s["o_fixed"] is not None else F
+    u2 = rep / s["q"]
+    sv2 = fl2 + bn2 * net2 + bg2 * gross2
+    cm2 = net2 - u2 - sv2
+    fm2 = F2 + (inv / s["life"] if inv else 0)
+    out.update(u2=u2, s2=sv2, cm2=cm2, fm2=fm2, net2=net2, f2=fl2)
+    out["bem2"] = fm2 / cm2 if cm2 > 0 else None
+    D2 = 1 - bn2 - bg2 * (1 + v)
+    out["price_be2"] = f * (u2 + fl2 + fm2 / s["m"]) / D2
+    out["fl"], out["po"], out["bn"], out["bg"] = fl, po, bn, bg
+    out["bn2"], out["bg2"] = bn2, bg2
+    out["saving"] = 1 - u2 / out["u_all"]
     return out
 
 
-def fill(sc, path):
+def engine(s, ex):
+    out = {}
+    v, inc = s["vat"] / 100, s["inc"] == "예"
+    # 초도: direct 0, flat variable, rates, fixed = total to recover
+    ci = make_client_input_bep(actual_price=s["price"], includes_vat=inc, vat_rate=v, direct_cost=0,
+                               variable_fixed_cost=ex["fl"] + ex["po"], net_sales_fee_rate=ex["bn"],
+                               gross_payment_fee_rate=ex["bg"], fixed_operating_cost=ex["tot"])
+    m = run_bep(ci)["per_component"]["main"]
+    out["w"] = m["contribution_margin_per_unit"]["value"]
+    st = m["break_even_quantity_exact"]
+    out["beq"] = st["value"] if st["status"] == "OK" else None
+    cb = make_client_input_b(target_cm_rate=0.0, direct_cost=ex["tot"] / s["n"] + ex["fl"] + ex["po"],
+                             net_sales_fee_rate=ex["bn"], gross_payment_fee_rate=ex["bg"], vat_rate=v, includes_vat=inc)
+    rb = run_mode_b(cb)["per_component"]["main"]["required_selling_price"]
+    out["price_be"] = rb["value"] if rb["status"] == "OK" else None
+    # 양산
+    P2 = s["o_price"] if s["o_price"] is not None else s["price"]
+    ci2 = make_client_input_bep(actual_price=P2, includes_vat=inc, vat_rate=v, direct_cost=ex["u2"],
+                                variable_fixed_cost=ex["f2"], net_sales_fee_rate=ex["bn2"],
+                                gross_payment_fee_rate=ex["bg2"], fixed_operating_cost=ex["fm2"])
+    m2 = run_bep(ci2)["per_component"]["main"]
+    out["cm2"] = m2["contribution_margin_per_unit"]["value"]
+    st2 = m2["break_even_quantity_exact"]
+    out["bem2"] = st2["value"] if st2["status"] == "OK" else None
+    cb2 = make_client_input_b(target_cm_rate=0.0, direct_cost=ex["u2"] + ex["f2"] + ex["fm2"] / s["m"],
+                              net_sales_fee_rate=ex["bn2"], gross_payment_fee_rate=ex["bg2"], vat_rate=v, includes_vat=inc)
+    rb2 = run_mode_b(cb2)["per_component"]["main"]["required_selling_price"]
+    out["price_be2"] = rb2["value"] if rb2["status"] == "OK" else None
+    return out
+
+
+def fill(s, path):
     wb = openpyxl.load_workbook(TEMPLATE)
-    ws = wb.active
-    for k in ("biz", "n", "t", "life", "basis", "price", "vat", "inc"):
-        if sc[k] is not None:
-            ws[A[k].replace("$", "")] = sc[k]
-    for i, (a, amt, kind) in enumerate(sc["make"]):
-        r = LAY["make"][0] + i
-        ws.cell(r, 1, a), ws.cell(r, 3, amt), ws.cell(r, 4, kind)
-    for i, (a, amt, kind) in enumerate(sc["sell"]):
-        r = LAY["sell"][0] + i
-        ws.cell(r, 1, a), ws.cell(r, 3, amt), ws.cell(r, 4, kind)
-    for i, (a, amt) in enumerate(sc["fixed"]):
-        r = LAY["fixed"][0] + i
-        ws.cell(r, 1, a), ws.cell(r, 3, amt)
+    w1, w2 = wb[S1], wb[S2]
+    for k in ("biz", "n", "t", "price", "vat", "inc"):
+        w1[A1[k].replace("$", "")] = s[k]
+    for i, (a, amt) in enumerate(s["make"]):
+        r = LAY[S1]["make"][0] + i
+        w1.cell(r, 1, a), w1.cell(r, 3, amt)
+    for i, (a, amt, kind) in enumerate(s["sell"]):
+        r = LAY[S1]["sell"][0] + i
+        w1.cell(r, 1, a), w1.cell(r, 3, amt), w1.cell(r, 4, kind)
+    for i, (a, amt) in enumerate(s["fixed"]):
+        r = LAY[S1]["fixed"][0] + i
+        w1.cell(r, 1, a), w1.cell(r, 3, amt)
+    for k in ("q", "m", "o_price", "life", "o_fl", "o_bn", "o_bg", "o_fixed"):
+        if s[k] is not None:
+            w2[R2[k].replace("$", "")] = s[k]
+    for i, (a, amt) in enumerate(s["rep"]):
+        r = LAY[S2]["repeat"][0] + i
+        w2.cell(r, 1, a), w2.cell(r, 3, amt)
+    for i, (a, amt) in enumerate(s["invest"]):
+        r = LAY[S2]["invest"][0] + i
+        w2.cell(r, 1, a), w2.cell(r, 3, amt)
     wb.save(path)
 
 
@@ -142,64 +183,100 @@ def recalc(path):
     out.mkdir(exist_ok=True)
     subprocess.run([SOFFICE, "--headless", "--convert-to", "xlsx:Calc MS Excel 2007 XML", "--outdir", str(out), str(path)],
                    check=True, capture_output=True)
-    return openpyxl.load_workbook(out / path.name, data_only=True).active
+    return openpyxl.load_workbook(out / path.name, data_only=True)
+
+
+def val(wb, sheet, ref):
+    return wb[sheet][ref.replace("$", "")].value
 
 
 def close(a, b, tol=1e-6):
-    return a is not None and b is not None and abs(a - b) <= tol * max(1.0, abs(b))
+    return isinstance(a, (int, float)) and b is not None and abs(a - b) <= tol * max(1.0, abs(b))
 
 
 def main():
     shutil.rmtree(SCRATCH, ignore_errors=True)
     SCRATCH.mkdir()
     fails = 0
-    for i, sc in enumerate(SCENARIOS):
+    for i, s in enumerate(SCENARIOS):
         p = SCRATCH / f"s{i}.xlsx"
-        fill(sc, p)
-        ws = recalc(p)
-        ex = expected(sc)
-        en = engine(sc, ex)
-        got = {k: cellv(ws, REF[k]) for k in ("u", "cm", "fm", "bem", "becum", "pl", "price_be", "verdict")}
-        checks = [("u", ex["u"]), ("cm", ex["cm"]), ("fm", ex["fm"]), ("pl", ex["pl"]), ("price_be", ex["price_be"])]
-        if ex["bem"] is not None:
-            checks += [("bem", ex["bem"]), ("becum", ex["becum"])]
-        bad = [k for k, want in checks if not close(got[k], want)]
-        if not close(got["cm"], en["cm"]):
-            bad.append("engine:cm")
-        if ex["bem"] is not None and not close(got["bem"], en["bem"]):
-            bad.append("engine:bem")
-        if "price_be" in en and not close(got["price_be"], en["price_be"]):
+        fill(s, p)
+        wb = recalc(p)
+        ex = expected(s)
+        en = engine(s, ex)
+        bad = []
+        g1 = lambda k: val(wb, S1, R1[k])  # noqa: E731
+        g2 = lambda k: val(wb, S2, R2[k])  # noqa: E731
+        c1 = [("net", "net"), ("s", "s"), ("w", "w"), ("tot", "tot"), ("pl", "pl"), ("price_be", "price_be")]
+        if ex["beq"] is not None:
+            c1 += [("beq", "beq"), ("pct", "pct"), ("bem", "bem")]
+        for k, e_ in c1:
+            if not close(g1(k), ex[e_]):
+                bad.append(f"초도:{k} got={g1(k)} want={ex[e_]}")
+        if not close(g1("w"), en["w"]):
+            bad.append("engine:w")
+        if ex["beq"] is not None and not close(g1("beq"), en["beq"]):
+            bad.append("engine:beq")
+        if not close(g1("price_be"), en["price_be"]):
             bad.append("engine:price_be")
-        notes = []
-        if "price_be_error" in en:
-            notes.append("engine MODE B price skipped: " + en["price_be_error"])
-        want_text = ("개당 공헌이익이 0 이하" if ex["cm"] <= 0 else
-                     "본전이 안 됩니다" if ex["becum"] > sc["n"] else "초도물량으로 본전 가능")
-        if want_text not in str(got["verdict"]):
-            bad.append("verdict text")
-        errs = [c.coordinate for row in ws.iter_rows() for c in row if isinstance(c.value, str) and c.value.startswith("#")]
+        c2 = [("u", "u2"), ("s", "s2"), ("cm", "cm2"), ("fm", "fm2"), ("price_be", "price_be2")]
+        if ex["bem2"] is not None:
+            c2.append(("bem", "bem2"))
+        for k, e_ in c2:
+            if not close(g2(k), ex[e_]):
+                bad.append(f"양산:{k} got={g2(k)} want={ex[e_]}")
+        if not close(g2("cm"), en["cm2"]):
+            bad.append("engine:cm2")
+        if ex["bem2"] is not None and not close(g2("bem"), en["bem2"]):
+            bad.append("engine:bem2")
+        if not close(g2("price_be"), en["price_be2"]):
+            bad.append("engine:price_be2")
+        # 비교 탭
+        cmpv = lambda key, col: wb[S3][f"{col}{CR[key]}"].value  # noqa: E731
+        for key, e1, e2 in (("u", ex["u_all"], ex["u2"]), ("cm", ex["cm1"], ex["cm2"]), ("fm", ex["fm1"], ex["fm2"])):
+            if not close(cmpv(key, "B"), e1) or not close(cmpv(key, "C"), e2):
+                bad.append(f"비교:{key} {cmpv(key, 'B')}/{cmpv(key, 'C')} want {e1}/{e2}")
+        if ex["bem1"] is not None and not close(cmpv("bem", "B"), ex["bem1"]):
+            bad.append("비교:bem1")
+        if not close(cmpv("saving", "C"), ex["saving"]):
+            bad.append("비교:saving")
+        # verdict text branches
+        v1 = str(g1("verdict"))
+        want1 = ("판매 1개당 남는 금액이 0 이하" if ex["w"] <= 0 else
+                 "본전이 안 됩니다" if ex["pct"] > 1 else "초도물량으로 본전 가능")
+        if want1 not in v1:
+            bad.append("초도 verdict text")
+        v2 = str(g2("verdict"))
+        want2 = ("개당 공헌이익이 0 이하" if ex["cm2"] <= 0 else
+                 "본전이 안 됩니다" if ex["bem2"] / s["m"] > 1 else "본전 가능")
+        if want2 not in v2:
+            bad.append("양산 verdict text")
+        errs = [(sh.title, c.coordinate) for sh in wb.worksheets for row in sh.iter_rows() for c in row
+                if isinstance(c.value, str) and c.value.startswith("#")]
         if errs:
-            bad.append(f"excel errors {errs}")
-        status = "PASS" if not bad else "FAIL " + ",".join(bad)
+            bad.append(f"excel errors {errs[:3]}")
         fails += bool(bad)
-        print(f"[{status}] {sc['name']}: cm={got['cm']:.2f} bem={got['bem']} price_be={got['price_be']}")
-        print(f"        verdict: {got['verdict']}")
-        for n in notes:
-            print("        note:", n)
-    # blank template must show the prompt, not errors
-    ws = recalc_blank()
-    blank_ok = "필수 입력" in str(cellv(ws, REF["verdict"]))
-    print(f"[{'PASS' if blank_ok else 'FAIL'}] blank template shows the fill-in prompt")
+        print(f"[{'PASS' if not bad else 'FAIL ' + '; '.join(bad)}] {s['name']}")
+        print(f"        초도: {v1}")
+        print(f"        양산: {v2}")
+        print(f"        비교: {wb[S3]['B' + LAY[S3]['REF']['verdict'].split('$')[-1]].value}")
+    # blank template: prompts, no errors, no filled input cells
+    p = SCRATCH / "blank.xlsx"
+    shutil.copy(TEMPLATE, p)
+    wb = recalc(p)
+    ok = ("필수 입력" in str(val(wb, S1, R1["verdict"])) and "필수 입력" in str(val(wb, S2, R2["verdict"]))
+          and "채우면" in str(val(wb, S3, LAY[S3]["REF"]["verdict"])))
+    errs = [(sh.title, c.coordinate) for sh in wb.worksheets for row in sh.iter_rows() for c in row
+            if isinstance(c.value, str) and c.value.startswith("#")]
+    tmpl = openpyxl.load_workbook(TEMPLATE)
+    filled = [(sh.title, c.coordinate) for sh in tmpl.worksheets for row in sh.iter_rows() for c in row
+              if c.fill.fgColor.rgb == "00FFF6D6" and c.value is not None]
+    blank_ok = ok and not errs and not filled
+    print(f"[{'PASS' if blank_ok else 'FAIL'}] blank template: prompts={ok} errors={errs[:3]} filled_inputs={filled[:3]}")
     fails += not blank_ok
     shutil.rmtree(SCRATCH, ignore_errors=True)
     print("ALL PASS" if not fails else f"{fails} FAILED")
     return 1 if fails else 0
-
-
-def recalc_blank():
-    p = SCRATCH / "blank.xlsx"
-    shutil.copy(TEMPLATE, p)
-    return recalc(p)
 
 
 if __name__ == "__main__":
