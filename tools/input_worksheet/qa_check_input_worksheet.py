@@ -42,12 +42,12 @@ A1, R1 = LAY[S1]["A"], LAY[S1]["REF"]
 R2 = LAY[S2]["REF"]
 CR = LAY[S3]["rows"]
 
-K_ONCE, K_FLAT, K_ORDER = "런칭 전 총액", "판매 시 정액 (개당)", "판매 시 정액 (주문당)"
+K_ONCE, K_FLAT = "런칭 전 총액", "판매 시 정액 (판매 단위당)"
 K_NET, K_GROSS = "판매 시 순매출 대비 %", "판매 시 지불액 대비 %"
 
 
 def sc(name, **kw):
-    base = dict(biz="제조", n=200, t=6, price=35000, vat=10, inc="예", make=[], sell=[], fixed=[],
+    base = dict(biz="제조", unit="낱개 1개", n=200, t=6, price=35000, vat=10, inc="예", make=[], sell=[], fixed=[],
                 q=None, m=None, o_price=None, rep=[], invest=[], life=None,
                 o_fl=None, o_bn=None, o_bg=None, o_fixed=None)
     base.update(kw)
@@ -62,7 +62,7 @@ SCENARIOS = [
     sc("feasible", n=500, make=[("재료", 5_000_000)], sell=[("PG", 2.5, K_GROSS), ("배송", 3000, K_FLAT)],
        fixed=[("임대", 300_000)], q=2000, m=300, rep=[("재료", 16_000_000)], invest=[("증설", 6_000_000)], life=24),
     sc("price excl VAT + overrides", inc="아니오", price=31818.18, make=[("재료", 4_000_000)],
-       sell=[("플랫폼", 8, K_NET), ("PG", 3, K_GROSS), ("택배", 2500, K_ORDER)], fixed=[("임대", 500_000)],
+       sell=[("플랫폼", 8, K_NET), ("PG", 3, K_GROSS), ("택배", 2500, K_FLAT)], fixed=[("임대", 500_000)],
        q=800, m=120, o_price=29000, rep=[("재료", 8_000_000)], o_fl=1800, o_bn=6, o_bg=2, o_fixed=700_000),
     sc("cm <= 0", make=[("재료", 9_000_000)], fixed=[("임대", 300_000)], q=500, m=100, rep=[("재료", 20_000_000)]),
     sc("service", biz="서비스", n=30, t=3, make=[("개발 인건비", 15_000_000)], fixed=[("툴", 200_000)],
@@ -79,7 +79,7 @@ def expected(s):
     make = sum(a for _, a in s["make"])
     once = sum(x for _, x, k in s["sell"] if k == K_ONCE)
     fl = sum(x for _, x, k in s["sell"] if k == K_FLAT)
-    po = sum(x for _, x, k in s["sell"] if k == K_ORDER)
+    po = 0.0  # per-order is no longer a separate kind
     bn = sum(x for _, x, k in s["sell"] if k == K_NET) / 100
     bg = sum(x for _, x, k in s["sell"] if k == K_GROSS) / 100
     F = sum(a for _, a in s["fixed"])
@@ -155,7 +155,7 @@ def engine(s, ex):
 def fill(s, path):
     wb = openpyxl.load_workbook(TEMPLATE)
     w1, w2 = wb[S1], wb[S2]
-    for k in ("biz", "n", "t", "price", "vat", "inc"):
+    for k in ("biz", "unit", "n", "t", "price", "vat", "inc"):
         w1[A1[k].replace("$", "")] = s[k]
     for i, (a, amt) in enumerate(s["make"]):
         r = LAY[S1]["make"][0] + i
@@ -242,12 +242,12 @@ def main():
             bad.append("비교:saving")
         # verdict text branches
         v1 = str(g1("verdict"))
-        want1 = ("판매 1개당 남는 금액이 0 이하" if ex["w"] <= 0 else
+        want1 = ("판매 단위당 남는 금액이 0 이하" if ex["w"] <= 0 else
                  "본전이 안 됩니다" if ex["pct"] > 1 else "초도물량으로 본전 가능")
         if want1 not in v1:
             bad.append("초도 verdict text")
         v2 = str(g2("verdict"))
-        want2 = ("개당 공헌이익이 0 이하" if ex["cm2"] <= 0 else
+        want2 = ("판매 단위당 공헌이익이 0 이하" if ex["cm2"] <= 0 else
                  "본전이 안 됩니다" if ex["bem2"] / s["m"] > 1 else "본전 가능")
         if want2 not in v2:
             bad.append("양산 verdict text")
