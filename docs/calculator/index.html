@@ -301,7 +301,7 @@
     <!-- INPUT PANEL -->
     <div class="panel" id="input-panel">
       <p class="auto-note" data-i18n="auto_note"></p>
-      <details class="paste-box" id="paste-box">
+      <details class="paste-box" id="paste-box" open>
         <summary data-i18n="paste_title"></summary>
         <p class="section-hint" data-i18n="paste_hint"></p>
         <textarea id="paste-input" rows="6" spellcheck="false" data-i18n-placeholder="paste_ph"></textarea>
@@ -430,9 +430,9 @@
       add_direct: "+ 직접원가 항목 추가",
       sec_variable: "변동비 (variable selling/delivery)",
       add_variable: "+ 변동비 항목 추가",
-      hint_direct: "판매 1단위(또는 1건)당 직접원가를 입력해 주세요. 총비용(예: 개발비 전체)을 그대로 넣으면 결과가 크게 왜곡됩니다. 총비용 ÷ 계획 판매량으로 먼저 계산해 입력하세요. 생산량에 따라 늘어나는 제작 비용(재료비, 개당 전기·가공비 등)도 여기에 1단위당으로 환산해 입력하세요. 수수료·배송비 같은 판매·배송 비용은 아래 변동비에 입력하세요(중복 입력 시 두 번 차감됩니다).",
+      hint_direct: "입력 정리 시트를 썼다면 시트의 '직접원가(판매 단위당)' 합계를 한 줄로 넣으면 됩니다. 맨 위 '시트 값 붙여넣기'를 쓰면 자동으로 채워지고, 아래 항목을 따로 나눠 적을 필요가 없습니다. 시트 없이 직접 입력할 때는 판매 단위 1개당 금액으로 적고, 총비용(예: 개발비 전체)은 총비용 ÷ 계획 판매량으로 환산해서 넣으세요. 제작 비용은 여기에, 수수료·배송비 같은 판매·배송 비용은 아래 변동비에 입력하세요(중복 입력 시 두 번 차감됩니다).",
       scope_note: "수업을 들은 분들을 위해, 스타트업 상품기획에 특화된 가격관리 계산기입니다. 따라서 회계 일반론의 변동비(생산량에 따라 늘어나는 모든 비용)와 다릅니다. 여기서는 생산량에 따라 늘어나는 제작 비용은 직접원가(1단위당)에, 변동비에는 판매·배송 관련 비용만 입력합니다.",
-      hint_variable: "이 칸에는 판매·배송 관련 비용(수수료, 결제수수료, 배송비 등)만 입력하세요. 제작 관련 비용은 위 직접원가에 입력합니다. 정액으로 입력할 때는 목표 물량을 기준으로 산출한 1단위당(또는 1주문당) 단가를 입력해 주세요. 총액(예: 개발비 전체)을 그대로 넣으면 결과가 크게 왜곡됩니다.",
+      hint_variable: "입력 정리 시트를 썼다면 시트의 변동비 유형별 합계(정액, 순매출 대비 %, 지불액 대비 %)가 항목으로 들어갑니다. 맨 위 '시트 값 붙여넣기'를 쓰면 자동으로 채워집니다. 직접 입력할 때는 판매·배송 관련 비용(수수료, 결제수수료, 배송비 등)만 적으세요. 제작 관련 비용은 위 직접원가에 입력합니다. 정액은 '정액 (개당)'을 고르고 판매 단위 1개당 금액으로 적으세요. 총액(예: 개발비 전체)을 그대로 넣으면 결과가 크게 왜곡됩니다.",
       sec_fixed: "고정운영비 & 목표",
       lbl_fixed: "월 고정운영비 합계 (KRW)",
       hint_fixed: "BEP·판매량 손익에 사용 — 임대료·인건비·판관비 등 월 합계",
@@ -535,9 +535,9 @@
       add_direct: "+ Add direct cost item",
       sec_variable: "Variable cost (variable selling/delivery)",
       add_variable: "+ Add variable cost item",
-      hint_direct: "Enter the direct cost per unit sold (or per order). Entering a total (for example the whole development cost) distorts the result badly — first divide the total cost by your planned sales volume. Production costs that grow with volume (materials, electricity or processing per unit, etc.) also go here, converted to a per-unit amount. Selling and delivery costs such as fees and shipping go under Variable cost below (entering them in both places deducts them twice).",
+      hint_direct: "If you used the input worksheet, enter its direct cost per sales unit as a single line. The 'Paste worksheet values' box at the top fills it in for you, so you do not need to itemize here. Without the worksheet, enter the amount per sales unit; convert a total (for example the whole development cost) first by dividing it by your planned sales volume. Production costs go here; selling and delivery costs such as fees and shipping go under Variable cost below (entering them in both places deducts them twice).",
       scope_note: "Built for people who took the course: this is a pricing calculator specialised for startup product planning. Its \"variable cost\" is therefore not the general accounting definition (every cost that grows with production volume). Here, production costs that grow with volume go into Direct cost (per unit), and Variable cost takes selling and delivery costs only.",
-      hint_variable: "Enter only selling and delivery costs here (sales fees, payment fees, shipping, etc.). Production-related costs go under Direct cost above. For fixed amounts, enter the per-unit (or per-order) cost worked out from your target volume. Entering a total (for example the whole development cost) distorts the result badly.",
+      hint_variable: "If you used the input worksheet, its variable-cost totals by type (fixed amount, % of net sales, % of gross payment) become the items here. The 'Paste worksheet values' box at the top fills them in for you. When entering them yourself, list only selling and delivery costs (sales fees, payment fees, shipping, etc.); production-related costs go under Direct cost above. For a fixed amount, pick 'Fixed amount (per unit)' and enter the amount per sales unit. Entering a total (for example the whole development cost) distorts the result badly.",
       sec_fixed: "Fixed cost & targets",
       lbl_fixed: "Monthly fixed operating cost, total (KRW)",
       hint_fixed: "Used for BEP and Volume Profit — monthly total of rent, payroll, overhead, etc.",
