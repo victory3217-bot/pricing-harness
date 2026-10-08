@@ -102,6 +102,11 @@
     font-family: var(--font-display); font-weight: 700; font-size: 27px;
     margin: 0; letter-spacing: -0.01em; text-wrap: balance;
   }
+  .scope-note{
+    margin: -4px 0 22px; padding: 10px 14px; font-size: 13px; line-height: 1.6;
+    color: var(--text-muted); background: var(--surface-sunken);
+    border: 1px solid var(--border); border-radius: var(--radius-m, 10px);
+  }
   header.top .sub{ color: var(--text-muted); font-size: 14px; flex: 1 1 260px; }
   .proto-chip{
     font-size: 11.5px; font-weight: 600; letter-spacing: 0.03em;
@@ -270,6 +275,7 @@
       <button type="button" data-lang-btn="en" aria-pressed="false" lang="en">English</button>
     </div>
   </header>
+  <p class="scope-note" data-i18n="scope_note"></p>
 
   <div class="layout">
     <!-- INPUT PANEL -->
@@ -385,8 +391,9 @@
       add_direct: "+ 직접원가 항목 추가",
       sec_variable: "변동비 (variable selling/delivery)",
       add_variable: "+ 변동비 항목 추가",
-      hint_direct: "판매 1단위(또는 1건)당 직접원가를 입력해 주세요. 총비용(예: 개발비 전체)을 그대로 넣으면 결과가 크게 왜곡됩니다. 총비용 ÷ 계획 판매량으로 먼저 계산해 입력하세요.",
-      hint_variable: "정액으로 입력할 때는 목표 물량을 기준으로 산출한 1단위당(또는 1주문당) 단가를 입력해 주세요. 총액(예: 개발비 전체)을 그대로 넣으면 결과가 크게 왜곡됩니다.",
+      hint_direct: "판매 1단위(또는 1건)당 직접원가를 입력해 주세요. 총비용(예: 개발비 전체)을 그대로 넣으면 결과가 크게 왜곡됩니다. 총비용 ÷ 계획 판매량으로 먼저 계산해 입력하세요. 생산량에 따라 늘어나는 제작 비용(재료비, 개당 전기·가공비 등)도 여기에 1단위당으로 환산해 입력하세요. 수수료·배송비 같은 판매·배송 비용은 아래 변동비에 입력하세요(중복 입력 시 두 번 차감됩니다).",
+      scope_note: "수업을 들은 분들을 위해, 스타트업 상품기획에 특화된 가격관리 계산기입니다. 따라서 회계 일반론의 변동비(생산량에 따라 늘어나는 모든 비용)와 다릅니다. 여기서는 생산량에 따라 늘어나는 제작 비용은 직접원가(1단위당)에, 변동비에는 판매·배송 관련 비용만 입력합니다.",
+      hint_variable: "이 칸에는 판매·배송 관련 비용(수수료, 결제수수료, 배송비 등)만 입력하세요. 제작 관련 비용은 위 직접원가에 입력합니다. 정액으로 입력할 때는 목표 물량을 기준으로 산출한 1단위당(또는 1주문당) 단가를 입력해 주세요. 총액(예: 개발비 전체)을 그대로 넣으면 결과가 크게 왜곡됩니다.",
       sec_fixed: "고정운영비 & 목표",
       lbl_fixed: "월 고정운영비 합계 (KRW)",
       hint_fixed: "BEP·판매량 손익에 사용 — 임대료·인건비·판관비 등 월 합계",
@@ -477,8 +484,9 @@
       add_direct: "+ Add direct cost item",
       sec_variable: "Variable cost (variable selling/delivery)",
       add_variable: "+ Add variable cost item",
-      hint_direct: "Enter the direct cost per unit sold (or per order). Entering a total (for example the whole development cost) distorts the result badly — first divide the total cost by your planned sales volume.",
-      hint_variable: "For fixed amounts, enter the per-unit (or per-order) cost worked out from your target volume. Entering a total (for example the whole development cost) distorts the result badly.",
+      hint_direct: "Enter the direct cost per unit sold (or per order). Entering a total (for example the whole development cost) distorts the result badly — first divide the total cost by your planned sales volume. Production costs that grow with volume (materials, electricity or processing per unit, etc.) also go here, converted to a per-unit amount. Selling and delivery costs such as fees and shipping go under Variable cost below (entering them in both places deducts them twice).",
+      scope_note: "Built for people who took the course: this is a pricing calculator specialised for startup product planning. Its \"variable cost\" is therefore not the general accounting definition (every cost that grows with production volume). Here, production costs that grow with volume go into Direct cost (per unit), and Variable cost takes selling and delivery costs only.",
+      hint_variable: "Enter only selling and delivery costs here (sales fees, payment fees, shipping, etc.). Production-related costs go under Direct cost above. For fixed amounts, enter the per-unit (or per-order) cost worked out from your target volume. Entering a total (for example the whole development cost) distorts the result badly.",
       sec_fixed: "Fixed cost & targets",
       lbl_fixed: "Monthly fixed operating cost, total (KRW)",
       hint_fixed: "Used for BEP and Volume Profit — monthly total of rent, payroll, overhead, etc.",
