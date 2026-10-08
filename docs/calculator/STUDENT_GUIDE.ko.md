@@ -5,7 +5,7 @@
 ## 준비물
 
 - 웹 계산기: <https://victory3217-bot.github.io/pricing-harness/calculator/> (설치·가입 불필요, 영어는 `?lang=en`)
-- 입력 정리 시트(`Pricing_Input_Worksheet.xlsx`): 계산기 위쪽의 **"⬇ 입력 정리 시트 받기"** 버튼으로 내려받습니다. Excel이나 구글 스프레드시트(업로드해서 열기)에서 쓸 수 있습니다.
+- 입력 정리 시트: [**⬇ Pricing_Input_Worksheet.xlsx 내려받기**](https://victory3217-bot.github.io/pricing-harness/calculator/Pricing_Input_Worksheet.xlsx) (계산기 위쪽의 **"⬇ 입력 정리 시트 받기"** 버튼으로도 받을 수 있습니다). Excel이나 구글 스프레드시트(업로드해서 열기)에서 쓸 수 있습니다.
 
 ## 내 데이터는 어디에 저장되나요?
 
