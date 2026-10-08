@@ -114,6 +114,14 @@
     padding: 5px 10px; border-radius: 999px; white-space: nowrap;
   }
 
+  .dl-btn{
+    font-size: 12.5px; font-weight: 600; text-decoration: none; white-space: nowrap;
+    color: var(--accent-strong); background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+    padding: 6px 12px; border-radius: 999px;
+  }
+  .dl-btn:hover{ border-color: var(--accent); }
+
   .layout{ display: grid; grid-template-columns: 380px 1fr; gap: 22px; align-items: start; }
   @media (max-width: 900px){ .layout{ grid-template-columns: 1fr; } }
 
@@ -270,6 +278,7 @@
     <h1 data-i18n="title"></h1>
     <div class="sub" data-i18n="sub"></div>
     <span class="proto-chip" data-i18n="chip"></span>
+    <a class="dl-btn" href="Pricing_Input_Worksheet.xlsx" download data-i18n="dl_sheet" data-i18n-title="dl_sheet_title"></a>
     <div class="lang-switch" role="group" aria-label="Language / 언어">
       <button type="button" data-lang-btn="ko" aria-pressed="true" lang="ko">한국어</button>
       <button type="button" data-lang-btn="en" aria-pressed="false" lang="en">English</button>
@@ -382,6 +391,8 @@
       title: "가격 진단 계산기",
       sub: "단일 상품의 판매가·원가 구조를 입력하면 현재가 진단, 목표가, 허용원가, 손익분기점을 즉시 계산합니다.",
       chip: "프로토타입 · Python Core 미러링",
+      dl_sheet: "⬇ 입력 정리 시트 받기 (.xlsx)",
+      dl_sheet_title: "빈 양식 파일을 내려받습니다. 입력한 내용은 내 컴퓨터에만 저장되며 어디에도 전송되지 않습니다.",
       auto_note: "값을 입력하면 결과가 자동으로 계산됩니다 (계산 버튼 없음).",
       sec_price: "판매가 & 부가세",
       lbl_price: "실제 판매가 (KRW)",
@@ -475,6 +486,8 @@
       title: "Pricing Diagnostic Calculator",
       sub: "Enter one product's selling price and cost structure to instantly calculate the current-price diagnosis, target price, allowable cost, break-even point and profit at a planned volume.",
       chip: "Prototype · mirrors the Python Core",
+      dl_sheet: "⬇ Get the input worksheet (.xlsx)",
+      dl_sheet_title: "Downloads a blank template (labels are mostly Korean with English hints). What you type stays on your own computer and is never sent anywhere.",
       auto_note: "Results update automatically as you type — there is no calculate button.",
       sec_price: "Selling price & VAT",
       lbl_price: "Actual selling price (KRW)",
@@ -964,6 +977,7 @@
     document.documentElement.lang = LANG;
     document.title = t("title");
     $$("[data-i18n]").forEach(el => { el.textContent = t(el.getAttribute("data-i18n")); });
+    $$("[data-i18n-title]").forEach(el => { el.title = t(el.getAttribute("data-i18n-title")); });
     $$("[data-i18n-html]").forEach(el => { el.innerHTML = t(el.getAttribute("data-i18n-html")); });
     $$("[data-lang-btn]").forEach(b => b.setAttribute("aria-pressed", b.getAttribute("data-lang-btn") === LANG ? "true" : "false"));
   }
