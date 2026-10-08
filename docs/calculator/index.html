@@ -161,6 +161,10 @@
     font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
   }
   .add-btn:hover{ background: var(--accent-soft); }
+  .section-hint{
+    margin: -6px 0 12px; font-size: 12px; line-height: 1.55; color: var(--text-muted);
+    background: var(--surface-sunken); border-radius: var(--radius-s); padding: 8px 10px;
+  }
   .items-empty{ font-size: 12px; color: var(--text-faint); padding: 6px 0; }
 
   /* Results side */
@@ -291,6 +295,7 @@
 
       <div class="panel-section">
         <h2 data-i18n="sec_variable"></h2>
+        <p class="section-hint" data-i18n="hint_variable"></p>
         <div id="variable-items"></div>
         <button class="add-btn" id="add-variable" type="button" data-i18n="add_variable"></button>
       </div>
@@ -306,6 +311,11 @@
           <label for="plannedQty" data-i18n="lbl_qty"></label>
           <input type="number" id="plannedQty" value="200" min="0" step="1">
           <span class="hint" data-i18n="hint_qty"></span>
+        </div>
+        <div class="field">
+          <label for="unitsPerOrder" data-i18n="lbl_upo"></label>
+          <input type="number" id="unitsPerOrder" value="" min="0" step="0.1">
+          <span class="hint" data-i18n="hint_upo"></span>
         </div>
         <div class="row2">
           <div class="field">
@@ -367,11 +377,14 @@
       add_direct: "+ 직접원가 항목 추가",
       sec_variable: "변동비 (variable selling/delivery)",
       add_variable: "+ 변동비 항목 추가",
+      hint_variable: "정액으로 입력할 때는 목표 물량을 기준으로 산출한 1단위당(또는 1주문당) 단가를 입력해 주세요. 총액(예: 개발비 전체)을 그대로 넣으면 결과가 크게 왜곡됩니다.",
       sec_fixed: "고정운영비 & 목표",
       lbl_fixed: "월 고정운영비 합계 (KRW)",
       hint_fixed: "BEP·판매량 손익에 사용 — 임대료·인건비·판관비 등 월 합계",
       lbl_qty: "월 계획 판매량 (개)",
       hint_qty: "판매량 손익(Volume Profit)에 사용 — 비우면 미입력으로 처리, 0은 “판매 없음”",
+      lbl_upo: "주문당 평균 판매 수량 (개)",
+      hint_upo: "Volume Profit에 사용 — 비우면 주문당 1개로 가정(ESTIMATED), 값이 있으면 정액(주문당) 비용을 그 값으로 나눔. MODE A·BEP 탭은 이 값을 읽지 않음",
       lbl_target: "목표 공헌이익률 (%)",
       hint_target: "MODE B에 사용",
       lbl_discount: "정가 대비 할인율 (%)",
@@ -380,7 +393,7 @@
       hint_market: "MODE C에 사용 — 외부에서 주어진 판매가",
       tab_a: "현재가 진단", tab_b: "목표 가격", tab_c: "허용 원가", tab_bep: "손익분기",
       tab_vp: "판매량 손익", tab_vp_sub: "Volume Profit",
-      footer: "단일 컴포넌트 상품을 가정한 단순화 버전이며, shared-cost 배분·다중 컴포넌트·통화 환산 등 <code>core/engine</code>의 일부 규칙은 반영하지 않았습니다. 판매량 손익은 정액(주문당) 비용을 주문당 1개 판매로 가정하므로 해당 지표를 ESTIMATED로 표시합니다. 실제 컨설팅 산출물은 <code>core/engine</code>의 Python 계산 결과를 기준(source of truth)으로 삼아야 합니다.",
+      footer: "단일 컴포넌트 상품을 가정한 단순화 버전이며, shared-cost 배분·다중 컴포넌트·통화 환산 등 <code>core/engine</code>의 일부 규칙은 반영하지 않았습니다. 판매량 손익은 정액(주문당) 비용을 주문당 평균 판매 수량으로 나눠 환산하며, 그 값을 비우면 주문당 1개로 가정하고 해당 지표를 ESTIMATED로 표시합니다. 실제 컨설팅 산출물은 <code>core/engine</code>의 Python 계산 결과를 기준(source of truth)으로 삼아야 합니다.",
 
       item_materials: "자재원가", item_packaging: "포장비", item_pg: "PG수수료", item_shipping: "배송비", item_new: "신규 항목",
       empty_direct: "항목 없음 — 직접원가 0원으로 계산됩니다.",
@@ -425,6 +438,9 @@
       vp_error_strong: "계산할 수 없습니다.",
       vp_error_negative: "월 계획 판매량이 음수이거나 숫자가 아닙니다. 0 이상의 값을 입력하세요.",
       vp_error_price: "판매가 또는 VAT 설정이 유효하지 않아 순매출을 계산할 수 없습니다. 판매가를 확인하세요.",
+      vp_error_units: "주문당 평균 판매 수량은 0보다 큰 숫자여야 합니다. 값을 비우면 주문당 1개로 가정합니다.",
+      vp_upo_strong: "주문당 환산 적용.",
+      vp_upo_body: (u) => `정액(주문당) 비용을 주문당 평균 ${u}개로 나눠 개당 비용으로 환산했습니다. MODE A와 BEP 탭은 정액(주문당) 비용을 개당으로 취급하므로(주문당 1개 가정) 이 탭의 단위 공헌이익·손익분기와 다를 수 있습니다.`,
       vp_be_negative: "판매할수록 손실이 커지는 구조입니다(단위 공헌이익 음수). 손익분기 판매량 개념이 성립하지 않아 안전한계도 계산하지 않습니다.",
       vp_be_zero_zero: "고정비와 단위 공헌이익이 모두 0입니다 — 손익분기 판매량이 정의되지 않습니다.",
       vp_be_zero: "단위 공헌이익이 0이라 어떤 판매량으로도 고정비를 회수할 수 없습니다.",
@@ -437,7 +453,7 @@
       vp_below_strong: "손익분기 미달.",
       vp_below_body: "계획 판매량이 손익분기 판매량에 못 미칩니다 — 고정운영비를 회수하지 못합니다.",
       vp_est_strong: "추정값 포함.",
-      vp_est_body: "정액(주문당) 비용을 주문당 1개 판매로 가정했습니다. 주문당 구매 수량이 1개보다 크면 비용이 과대 계상되고 영업이익이 과소 계상됩니다.",
+      vp_est_body: "정액(주문당) 비용을 주문당 1개 판매로 가정했습니다. 주문당 구매 수량이 1개보다 크면 비용이 과대 계상되고 영업이익이 과소 계상됩니다. ‘주문당 평균 판매 수량’을 입력하면 환산해 계산합니다.",
     },
     en: {
       title: "Pricing Diagnostic Calculator",
@@ -451,11 +467,14 @@
       add_direct: "+ Add direct cost item",
       sec_variable: "Variable cost (variable selling/delivery)",
       add_variable: "+ Add variable cost item",
+      hint_variable: "For fixed amounts, enter the per-unit (or per-order) cost worked out from your target volume. Entering a total (for example the whole development cost) distorts the result badly.",
       sec_fixed: "Fixed cost & targets",
       lbl_fixed: "Monthly fixed operating cost, total (KRW)",
       hint_fixed: "Used for BEP and Volume Profit — monthly total of rent, payroll, overhead, etc.",
       lbl_qty: "Planned monthly quantity (units)",
       hint_qty: "Used for Volume Profit — blank means not entered; 0 means “no sales”",
+      lbl_upo: "Average units per order",
+      hint_upo: "Used for Volume Profit — blank assumes 1 unit per order (ESTIMATED); a value divides the fixed per-order costs by it. The MODE A and BEP tabs do not read it",
       lbl_target: "Target contribution margin rate (%)",
       hint_target: "Used for MODE B",
       lbl_discount: "Discount from list price (%)",
@@ -464,7 +483,7 @@
       hint_market: "Used for MODE C — selling price given externally",
       tab_a: "Current price", tab_b: "Target price", tab_c: "Allowable cost", tab_bep: "Break-even",
       tab_vp: "Volume Profit", tab_vp_sub: "Profit at volume",
-      footer: "This is a simplified single-component version; some rules in <code>core/engine</code> — shared-cost allocation, multiple components, currency conversion — are not reflected. Volume Profit assumes one unit per order for fixed per-order costs and marks the affected metrics ESTIMATED. Actual consulting deliverables must use the Python results from <code>core/engine</code> as the source of truth.",
+      footer: "This is a simplified single-component version; some rules in <code>core/engine</code> — shared-cost allocation, multiple components, currency conversion — are not reflected. Volume Profit divides fixed per-order costs by the average units per order; if that is left blank it assumes one unit per order and marks the affected metrics ESTIMATED. Actual consulting deliverables must use the Python results from <code>core/engine</code> as the source of truth.",
 
       item_materials: "Materials", item_packaging: "Packaging", item_pg: "Payment gateway fee", item_shipping: "Shipping", item_new: "New item",
       empty_direct: "No items — direct cost is treated as 0.",
@@ -509,6 +528,9 @@
       vp_error_strong: "Cannot calculate.",
       vp_error_negative: "The planned monthly quantity is negative or not a number. Enter 0 or more.",
       vp_error_price: "The selling price or VAT setting is invalid, so net sales cannot be calculated. Check the selling price.",
+      vp_error_units: "Average units per order must be a number greater than 0. Leave it blank to assume 1 unit per order.",
+      vp_upo_strong: "Per-order conversion applied.",
+      vp_upo_body: (u) => `Fixed per-order costs were divided by an average of ${u} units per order to get a per-unit cost. The MODE A and BEP tabs treat fixed per-order costs as per-unit (one unit per order), so this tab's contribution margin per unit and break-even can differ from theirs.`,
       vp_be_negative: "Every unit sold increases the loss (contribution margin per unit is negative), so break-even quantity does not exist and margin of safety is not calculated.",
       vp_be_zero_zero: "Fixed cost and contribution margin per unit are both 0 — break-even quantity is undefined.",
       vp_be_zero: "Contribution margin per unit is 0, so no sales quantity can recover the fixed cost.",
@@ -521,7 +543,7 @@
       vp_below_strong: "Below break-even.",
       vp_below_body: "The planned quantity is below the break-even quantity — fixed cost is not recovered.",
       vp_est_strong: "Includes an estimate.",
-      vp_est_body: "Fixed per-order costs are assumed to cover one unit per order. If customers buy more than one unit per order, cost is overstated and operating profit is understated.",
+      vp_est_body: "Fixed per-order costs are assumed to cover one unit per order. If customers buy more than one unit per order, cost is overstated and operating profit is understated. Enter the average units per order to convert them.",
     },
   };
 
@@ -669,6 +691,7 @@
       discountRate: (parseFloat($("#discountRate").value) || 0) / 100,
       marketPrice: parseFloat($("#marketPrice").value) || 0,
       plannedQty: $("#plannedQty").value.trim() === "" ? null : parseFloat($("#plannedQty").value),
+      unitsPerOrder: $("#unitsPerOrder").value.trim() === "" ? null : parseFloat($("#unitsPerOrder").value),
     };
   }
 
@@ -676,12 +699,14 @@
     const directTotal = directItems.reduce((s,it) => s + (Number(it.amount)||0), 0);
     let fixedAmt = 0, bRate = 0, aRate = 0;
     const hasPerOrder = variableItems.some(it => it.kind === "per_order" && it.amount !== null && it.amount !== undefined && !Number.isNaN(Number(it.amount)));
+    let perOrderAmt = 0;
     variableItems.forEach(it => {
+      if (it.kind === "per_order") perOrderAmt += Number(it.amount)||0;
       if (it.kind === "flat" || it.kind === "per_order") fixedAmt += Number(it.amount)||0;
       else if (it.kind === "net_sales") bRate += (Number(it.rate)||0)/100;
       else if (it.kind === "gross_payment") aRate += (Number(it.rate)||0)/100;
     });
-    return { directTotal, fixedAmt, bRate, aRate, hasPerOrder };
+    return { directTotal, fixedAmt, perOrderAmt, bRate, aRate, hasPerOrder };
   }
 
   function computeModeA(inp, agg){
@@ -742,10 +767,14 @@
 
   function computeVolume(inp, agg, modeA){
     const q = inp.plannedQty;
+    const u = inp.unitsPerOrder;
+    // An invalid average is an error whatever else is missing (ERROR beats UNKNOWN, as in the engine).
+    if (u !== null && (Number.isNaN(u) || u <= 0)) return { status: "ERROR", reason: "units" };
     if (q === null) return { status: "UNKNOWN" };
     if (Number.isNaN(q) || q < 0) return { status: "ERROR", reason: "negative" };
     if (modeA.status !== "OK") return { status: "ERROR", reason: "price" };
-    const N = modeA.N, cmu = modeA.cm, fc = inp.fixedCost;
+    // modeA.cm counts the per-order amount in full; a valid u adds back amount x (1 - 1/u).
+    const N = modeA.N, cmu = u === null ? modeA.cm : modeA.cm + agg.perOrderAmt * (1 - 1 / u), fc = inp.fixedCost;
     const totalSales = N * q, totalCm = cmu * q, op = totalCm - fc;
     const opRate = totalSales === 0 ? null : op / totalSales;
     let be = null, beNa = null;
@@ -753,7 +782,9 @@
     else beNa = cmu < 0 ? "negative" : (fc === 0 ? "zero_zero" : "zero");
     const mosQty = be === null ? null : q - be;
     const mosRate = (be === null || q === 0) ? null : (q - be) / q;
-    return { status: "OK", q, N, cmu, fc, est: agg.hasPerOrder, totalSales, totalCm, op, opRate, be, beNa, mosQty, mosRate };
+    const est = agg.hasPerOrder && u === null;
+    const uApplied = agg.hasPerOrder && u !== null && u !== 1 ? u : null;
+    return { status: "OK", q, N, cmu, fc, est, uApplied, totalSales, totalCm, op, opRate, be, beNa, mosQty, mosRate };
   }
 
   // ---------- render ----------
@@ -857,7 +888,8 @@
       return;
     }
     if (r.status === "ERROR"){
-      const msg = r.reason === "negative" ? t("vp_error_negative") : t("vp_error_price");
+      const msg = r.reason === "units" ? t("vp_error_units")
+        : r.reason === "negative" ? t("vp_error_negative") : t("vp_error_price");
       host.innerHTML = `${moduleStatusBadge("ERROR")}<div class="warn-box"><strong>${t("vp_error_strong")}</strong> ${msg}</div>`;
       return;
     }
@@ -889,6 +921,7 @@
       ${r.be === null ? `<div class="warn-box info"><strong>${t("vp_no_be_strong")}</strong> ${beMsg}</div>` : ""}
       ${r.mosQty !== null && r.mosQty < 0 ? `<div class="warn-box"><strong>${t("vp_below_strong")}</strong> ${t("vp_below_body")}</div>` : ""}
       ${r.est ? `<div class="warn-box info"><strong>${t("vp_est_strong")}</strong> ${t("vp_est_body")}</div>` : ""}
+      ${r.uApplied !== null ? `<div class="warn-box info"><strong>${t("vp_upo_strong")}</strong> ${t("vp_upo_body", String(r.uApplied))}</div>` : ""}
     `;
   }
 
