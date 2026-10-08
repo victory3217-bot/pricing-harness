@@ -174,6 +174,20 @@
     font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
   }
   .add-btn:hover{ background: var(--accent-soft); }
+  /* input colour code: green = values that come from the worksheet (paste), amber = values you try out here */
+  .src-sheet input[type="text"], .src-sheet input[type="number"], .src-sheet select{
+    background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  }
+  .src-sim input[type="text"], .src-sim input[type="number"], .src-sim select{
+    background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
+  }
+  .legend{
+    display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 9px 20px;
+    font-size: 12px; line-height: 1.5; color: var(--text-muted); border-bottom: 1px solid var(--border);
+  }
+  .legend .sw{ display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid; vertical-align: -1px; margin-right: 6px; }
+  .legend .sw-sheet{ background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+  .legend .sw-sim{ background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 55%, var(--border)); }
   .paste-box{ margin: 0; padding: 10px 20px; border-bottom: 1px solid var(--border); }
   .paste-box summary{ cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent-strong); }
   .paste-box .section-hint{ margin: 10px 0 8px; }
@@ -301,6 +315,10 @@
     <!-- INPUT PANEL -->
     <div class="panel" id="input-panel">
       <p class="auto-note" data-i18n="auto_note"></p>
+      <p class="legend">
+        <span><i class="sw sw-sheet"></i><span data-i18n="legend_sheet"></span></span>
+        <span><i class="sw sw-sim"></i><span data-i18n="legend_sim"></span></span>
+      </p>
       <details class="paste-box" id="paste-box" open>
         <summary data-i18n="paste_title"></summary>
         <p class="section-hint" data-i18n="paste_hint"></p>
@@ -308,7 +326,7 @@
         <button class="add-btn" id="paste-apply" type="button" data-i18n="paste_btn"></button>
         <p class="paste-status" id="paste-status" role="status" aria-live="polite"></p>
       </details>
-      <div class="panel-section">
+      <div class="panel-section src-sheet">
         <h2 data-i18n="sec_price"></h2>
         <div class="field">
           <label for="price" data-i18n="lbl_price"></label>
@@ -326,14 +344,14 @@
         </div>
       </div>
 
-      <div class="panel-section">
+      <div class="panel-section src-sheet">
         <h2 data-i18n="sec_direct"></h2>
         <p class="section-hint" data-i18n="hint_direct"></p>
         <div id="direct-items"></div>
         <button class="add-btn" id="add-direct" type="button" data-i18n="add_direct"></button>
       </div>
 
-      <div class="panel-section">
+      <div class="panel-section src-sheet">
         <h2 data-i18n="sec_variable"></h2>
         <p class="section-hint" data-i18n="hint_variable"></p>
         <div id="variable-items"></div>
@@ -342,34 +360,34 @@
 
       <div class="panel-section">
         <h2 data-i18n="sec_fixed"></h2>
-        <div class="field">
+        <div class="field src-sheet">
           <label for="fixedCost" data-i18n="lbl_fixed"></label>
           <input type="number" id="fixedCost" value="2000000" min="0" step="10000">
           <span class="hint" data-i18n="hint_fixed"></span>
         </div>
-        <div class="field">
+        <div class="field src-sheet">
           <label for="plannedQty" data-i18n="lbl_qty"></label>
           <input type="number" id="plannedQty" value="200" min="0" step="1">
           <span class="hint" data-i18n="hint_qty"></span>
         </div>
-        <div class="field">
+        <div class="field src-sim">
           <label for="unitsPerOrder" data-i18n="lbl_upo"></label>
           <input type="number" id="unitsPerOrder" value="" min="0" step="0.1">
           <span class="hint" data-i18n="hint_upo"></span>
         </div>
         <div class="row2">
-          <div class="field">
+          <div class="field src-sim">
             <label for="targetCmr" data-i18n="lbl_target"></label>
             <input type="number" id="targetCmr" value="45" min="0" max="99" step="0.5">
             <span class="hint" data-i18n="hint_target"></span>
           </div>
-          <div class="field">
+          <div class="field src-sim">
             <label for="discountRate" data-i18n="lbl_discount"></label>
             <input type="number" id="discountRate" value="0" min="0" max="99" step="1">
             <span class="hint" data-i18n="hint_discount"></span>
           </div>
         </div>
-        <div class="field">
+        <div class="field src-sim">
           <label for="marketPrice" data-i18n="lbl_market"></label>
           <input type="number" id="marketPrice" value="32000" min="0" step="100">
           <span class="hint" data-i18n="hint_market"></span>
@@ -412,6 +430,8 @@
       dl_sheet: "⬇ 입력 정리 시트 받기 (.xlsx)",
       dl_sheet_title: "빈 양식 파일을 내려받습니다. 입력한 내용은 내 컴퓨터에만 저장되며 어디에도 전송되지 않습니다.",
       auto_note: "값을 입력하면 결과가 자동으로 계산됩니다 (계산 버튼 없음).",
+      legend_sheet: "초록 칸: 시트에서 붙여넣는 값",
+      legend_sim: "주황 칸: 계산기에서 여러 숫자로 직접 시뮬레이션하는 값",
       paste_title: "시트 값 붙여넣기 (입력 정리 시트에서 옮기기)",
       paste_hint: "입력 정리 시트 5번 \"계산기에 입력할 값\" 표(라벨과 값 두 열)를 복사해 아래에 붙여넣고 버튼을 누르면 판매가·직접원가·변동비·고정비·판매량이 한 번에 채워집니다. 붙여넣은 내용은 이 브라우저 안에서만 읽으며 어디에도 전송되지 않습니다. 기존 입력값은 바뀝니다.",
       paste_ph: "실제 판매가 (KRW)\t35000\n부가세율 (%)\t10\n…",
@@ -439,13 +459,13 @@
       lbl_qty: "월 계획 판매량 (개)",
       hint_qty: "판매량 손익(Volume Profit)에 사용 — 비우면 미입력으로 처리, 0은 “판매 없음”",
       lbl_upo: "주문당 평균 판매 수량 (개)",
-      hint_upo: "Volume Profit에 사용 — 비우면 주문당 1개로 가정(ESTIMATED), 값이 있으면 정액(주문당) 비용을 그 값으로 나눔. MODE A·BEP 탭은 이 값을 읽지 않음",
+      hint_upo: "시뮬레이션용 — '판매량 손익' 탭에서만 사용. 비우면 주문당 1개로 가정(ESTIMATED), 값이 있으면 정액(주문당) 비용을 그 값으로 나눔. 현재가 진단·MODE B·MODE C·BEP 탭은 이 값을 읽지 않음",
       lbl_target: "목표 공헌이익률 (%)",
-      hint_target: "MODE B에 사용",
+      hint_target: "시뮬레이션용 — 'MODE B 목표 가격'(필요 판매가)과 'MODE C 허용 원가'(허용 직접원가) 탭에서 사용. 현재가 진단·BEP·판매량 손익 탭에는 영향 없음",
       lbl_discount: "정가 대비 할인율 (%)",
-      hint_discount: "MODE B 정가 역산",
+      hint_discount: "시뮬레이션용 — 'MODE B 목표 가격' 탭에서 필요 판매가를 정가로 역산할 때만 사용",
       lbl_market: "목표 시장가격 (KRW)",
-      hint_market: "MODE C에 사용 — 외부에서 주어진 판매가",
+      hint_market: "시뮬레이션용 — 'MODE C 허용 원가' 탭에서만 사용. 경쟁사·시장 등 외부에서 정해진 가격이며, 위의 실제 판매가와는 별개",
       tab_a: "현재가 진단", tab_b: "목표 가격", tab_c: "허용 원가", tab_bep: "손익분기",
       tab_vp: "판매량 손익", tab_vp_sub: "Volume Profit",
       footer: "단일 컴포넌트 상품을 가정한 단순화 버전이며, shared-cost 배분·다중 컴포넌트·통화 환산 등 <code>core/engine</code>의 일부 규칙은 반영하지 않았습니다. 판매량 손익은 정액(주문당) 비용을 주문당 평균 판매 수량으로 나눠 환산하며, 그 값을 비우면 주문당 1개로 가정하고 해당 지표를 ESTIMATED로 표시합니다. 실제 컨설팅 산출물은 <code>core/engine</code>의 Python 계산 결과를 기준(source of truth)으로 삼아야 합니다.",
@@ -458,10 +478,10 @@
 
       na: "해당없음", undetermined: "미확정", unit_count: "개",
 
-      a_n: "VAT 제외 순매출 (N)", a_n_note: "판매가 기준 환산값",
-      a_direct: "직접원가 합계", a_gp: "매출총이익 (Gross Profit)", a_gpr: "매출총이익률",
-      a_var: "변동비 합계", a_cm: "공헌이익 (Contribution Margin)", a_cmr: "공헌이익률",
-      a_wf_title: "가격 분해 (판매가 → 공헌이익)",
+      a_n: "판매 단위당 VAT 제외 순매출 (N)", a_n_note: "판매가 기준 환산값",
+      a_direct: "판매 단위당 직접원가 합계", a_gp: "판매 단위당 매출총이익 (Gross Profit)", a_gpr: "매출총이익률",
+      a_var: "판매 단위당 변동비 합계", a_cm: "판매 단위당 공헌이익 (Contribution Margin)", a_cmr: "공헌이익률",
+      a_wf_title: "가격 분해 (판매 단위당 판매가 → 공헌이익)",
       a_wf_price: "판매가(VAT제외)", a_wf_direct: "− 직접원가", a_wf_var: "− 변동비", a_wf_cm: "= 공헌이익",
 
       b_err_strong: "목표 달성 불가.",
@@ -517,6 +537,8 @@
       dl_sheet: "⬇ Get the input worksheet (.xlsx)",
       dl_sheet_title: "Downloads a blank template (labels are mostly Korean with English hints). What you type stays on your own computer and is never sent anywhere.",
       auto_note: "Results update automatically as you type — there is no calculate button.",
+      legend_sheet: "Green fields: values pasted from the worksheet",
+      legend_sim: "Amber fields: values you try out here with different numbers",
       paste_title: "Paste worksheet values (copy from the input worksheet)",
       paste_hint: "Copy the table in section 5 of the input worksheet (label and value columns), paste it below and press the button to fill selling price, direct cost, variable cost, fixed cost and volume at once. The text is read inside this browser only and is never sent anywhere. Existing inputs will be replaced. The worksheet labels are Korean, so keep the label column when you copy.",
       paste_ph: "실제 판매가 (KRW)\t35000\n부가세율 (%)\t10\n…",
@@ -544,13 +566,13 @@
       lbl_qty: "Planned monthly quantity (units)",
       hint_qty: "Used for Volume Profit — blank means not entered; 0 means “no sales”",
       lbl_upo: "Average units per order",
-      hint_upo: "Used for Volume Profit — blank assumes 1 unit per order (ESTIMATED); a value divides the fixed per-order costs by it. The MODE A and BEP tabs do not read it",
+      hint_upo: "For simulation — used only by the Volume Profit tab. Blank assumes 1 unit per order (ESTIMATED); a value divides the fixed per-order costs by it. The current-price check, MODE B, MODE C and BEP tabs do not read it",
       lbl_target: "Target contribution margin rate (%)",
-      hint_target: "Used for MODE B",
+      hint_target: "For simulation — used by the MODE B (target price: required selling price) and MODE C (allowable cost: allowable direct cost) tabs. No effect on the current-price check, BEP or volume-profit tabs",
       lbl_discount: "Discount from list price (%)",
-      hint_discount: "Used to back out the MODE B list price",
+      hint_discount: "For simulation — used only by the MODE B (target price) tab, to back out the list price from the required selling price",
       lbl_market: "Target market price (KRW)",
-      hint_market: "Used for MODE C — selling price given externally",
+      hint_market: "For simulation — used only by the MODE C (allowable cost) tab. A price set externally (competitors, the market), separate from the actual selling price above",
       tab_a: "Current price", tab_b: "Target price", tab_c: "Allowable cost", tab_bep: "Break-even",
       tab_vp: "Volume Profit", tab_vp_sub: "Profit at volume",
       footer: "This is a simplified single-component version; some rules in <code>core/engine</code> — shared-cost allocation, multiple components, currency conversion — are not reflected. Volume Profit divides fixed per-order costs by the average units per order; if that is left blank it assumes one unit per order and marks the affected metrics ESTIMATED. Actual consulting deliverables must use the Python results from <code>core/engine</code> as the source of truth.",
@@ -563,10 +585,10 @@
 
       na: "N/A", undetermined: "Undetermined", unit_count: "units",
 
-      a_n: "Net sales ex VAT (N)", a_n_note: "Converted from the selling price",
-      a_direct: "Total direct cost", a_gp: "Gross profit", a_gpr: "Gross profit rate",
-      a_var: "Total variable cost", a_cm: "Contribution margin", a_cmr: "Contribution margin rate",
-      a_wf_title: "Price breakdown (selling price → contribution margin)",
+      a_n: "Net sales ex VAT per sales unit (N)", a_n_note: "Converted from the selling price",
+      a_direct: "Total direct cost per sales unit", a_gp: "Gross profit per sales unit", a_gpr: "Gross profit rate",
+      a_var: "Total variable cost per sales unit", a_cm: "Contribution margin per sales unit", a_cmr: "Contribution margin rate",
+      a_wf_title: "Price breakdown (selling price per sales unit → contribution margin)",
       a_wf_price: "Selling price (ex VAT)", a_wf_direct: "− Direct cost", a_wf_var: "− Variable cost", a_wf_cm: "= Contribution margin",
 
       b_err_strong: "Target unreachable.",
