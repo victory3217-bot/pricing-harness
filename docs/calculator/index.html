@@ -161,6 +161,11 @@
     font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
   }
   .add-btn:hover{ background: var(--accent-soft); }
+  .auto-note{
+    margin: 0; padding: 10px 20px; font-size: 12.5px; font-weight: 500; line-height: 1.5;
+    color: var(--accent-strong); background: var(--accent-soft);
+    border-bottom: 1px solid var(--border); border-radius: var(--radius-l) var(--radius-l) 0 0;
+  }
   .section-hint{
     margin: -6px 0 12px; font-size: 12px; line-height: 1.55; color: var(--text-muted);
     background: var(--surface-sunken); border-radius: var(--radius-s); padding: 8px 10px;
@@ -269,6 +274,7 @@
   <div class="layout">
     <!-- INPUT PANEL -->
     <div class="panel" id="input-panel">
+      <p class="auto-note" data-i18n="auto_note"></p>
       <div class="panel-section">
         <h2 data-i18n="sec_price"></h2>
         <div class="field">
@@ -289,6 +295,7 @@
 
       <div class="panel-section">
         <h2 data-i18n="sec_direct"></h2>
+        <p class="section-hint" data-i18n="hint_direct"></p>
         <div id="direct-items"></div>
         <button class="add-btn" id="add-direct" type="button" data-i18n="add_direct"></button>
       </div>
@@ -369,6 +376,7 @@
       title: "가격 진단 계산기",
       sub: "단일 상품의 판매가·원가 구조를 입력하면 현재가 진단, 목표가, 허용원가, 손익분기점을 즉시 계산합니다.",
       chip: "프로토타입 · Python Core 미러링",
+      auto_note: "값을 입력하면 결과가 자동으로 계산됩니다 (계산 버튼 없음).",
       sec_price: "판매가 & 부가세",
       lbl_price: "실제 판매가 (KRW)",
       lbl_vat: "부가세율 (%)",
@@ -377,6 +385,7 @@
       add_direct: "+ 직접원가 항목 추가",
       sec_variable: "변동비 (variable selling/delivery)",
       add_variable: "+ 변동비 항목 추가",
+      hint_direct: "판매 1단위(또는 1건)당 직접원가를 입력해 주세요. 총비용(예: 개발비 전체)을 그대로 넣으면 결과가 크게 왜곡됩니다. 총비용 ÷ 계획 판매량으로 먼저 계산해 입력하세요.",
       hint_variable: "정액으로 입력할 때는 목표 물량을 기준으로 산출한 1단위당(또는 1주문당) 단가를 입력해 주세요. 총액(예: 개발비 전체)을 그대로 넣으면 결과가 크게 왜곡됩니다.",
       sec_fixed: "고정운영비 & 목표",
       lbl_fixed: "월 고정운영비 합계 (KRW)",
@@ -459,6 +468,7 @@
       title: "Pricing Diagnostic Calculator",
       sub: "Enter one product's selling price and cost structure to instantly calculate the current-price diagnosis, target price, allowable cost, break-even point and profit at a planned volume.",
       chip: "Prototype · mirrors the Python Core",
+      auto_note: "Results update automatically as you type — there is no calculate button.",
       sec_price: "Selling price & VAT",
       lbl_price: "Actual selling price (KRW)",
       lbl_vat: "VAT rate (%)",
@@ -467,6 +477,7 @@
       add_direct: "+ Add direct cost item",
       sec_variable: "Variable cost (variable selling/delivery)",
       add_variable: "+ Add variable cost item",
+      hint_direct: "Enter the direct cost per unit sold (or per order). Entering a total (for example the whole development cost) distorts the result badly — first divide the total cost by your planned sales volume.",
       hint_variable: "For fixed amounts, enter the per-unit (or per-order) cost worked out from your target volume. Entering a total (for example the whole development cost) distorts the result badly.",
       sec_fixed: "Fixed cost & targets",
       lbl_fixed: "Monthly fixed operating cost, total (KRW)",
