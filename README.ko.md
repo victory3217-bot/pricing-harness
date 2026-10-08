@@ -234,7 +234,7 @@ sibling scenario가 관련 없는 baseline의 실패 때문에 불이익을 받�
 
 ## Excel Simulator
 
-[`tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.6.xlsx`](tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.6.xlsx)는
+[`tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.7.xlsx`](tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.7.xlsx)는
 tracked된, 바로 열어 쓸 수 있는 workbook입니다 — 사용하기 위해 무언가를 빌드할 필요가 없습니다.
 이것은 **presentation/parity layer**이며, Python Core의 모든 기능을 그대로 1:1로 옮긴 UI가
 아닙니다: 각 mode 입력의 단순화된 대표 슬롯(representative slot) 버전만 노출하며(
@@ -248,7 +248,7 @@ python tools/excel_simulator/build_workbook.py
 ```
 
 이 명령은 현재 작업 디렉터리와 무관하게 항상
-`tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.6.xlsx`(스크립트 자신의 위치 기준
+`tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.7.xlsx`(스크립트 자신의 위치 기준
 상대 경로)에 저장합니다.
 
 ## Excel QA
@@ -286,7 +286,7 @@ python core/schemas/validate_examples.py  # 제공된 모든 example의 schema v
 - MODE C Excel QA: 20/20 PASS
 - BEP Excel QA: PASS
 - Scenario Compare Excel QA: 25 cases PASS
-- Volume Profit Excel QA: PASS (시뮬레이터 29개 시나리오, parity 30개 케이스)
+- Volume Profit Excel QA: PASS (시뮬레이터 42개 시나리오, parity 43개 케이스)
 - raw Excel errors: 0
 
 ## 현재 제한사항 (Current limitations)
@@ -306,9 +306,9 @@ python core/schemas/validate_examples.py  # 제공된 모든 example의 schema v
   `per_month` 기간만 지원합니다. `per_order` 비용은 `sales_plan.units_per_order`를 주면 그 값으로
   나눠 개당 비용으로 환산하고, 주지 않으면 주문당 1개 판매를 가정해 판매량에 의존하는 지표가
   `ESTIMATED`가 됩니다. MODE A와 BEP는 `units_per_order`를 읽지 않으므로 1이 아닌 값에서는 같은
-  결과 안에서도 Volume Profit과 달라집니다. Excel 시트와 웹 계산기는 아직 `units_per_order`를
-  반영하지 않습니다(주문당 1개 가정 유지). Excel 시트는 Python Core와 값·상태·모듈 상태를 대조하며, 경고
-  코드(warnings)는 대조하지 않습니다.
+  결과 안에서도 Volume Profit과 달라집니다. Excel 시트와 웹 계산기도 같은 방식입니다(그쪽의
+  MODE A/BEP 부분은 이 값을 읽지 않습니다). Volume Profit의 Excel 시트는 Python Core와
+  값·상태·모듈 상태를 대조하며, 경고 코드(warnings)는 대조하지 않습니다.
 - `build_workbook.py`는 import-time side effect를 가지고 있습니다(모듈을 import하는 것만으로
   workbook이 재생성·저장됩니다) — 항상 스크립트로 실행하십시오
   (`python tools/excel_simulator/build_workbook.py`), 다른 스크립트나 REPL에서
@@ -323,7 +323,7 @@ Pricing Harness에는 네 개의 독립적인 버전 축이 있습니다 — 각
 |---|---|---|---|
 | **Product release** | `0.1.0-beta.6` | root [`VERSION`](VERSION) 파일, git tag `v0.1.0-beta.6` | 어느 시점의 Pricing Harness 전체(Python Core + schema + Excel Simulator + 문서). 이 sanitized 공개 저장소의 release identity이며 — 현재 성숙도는 **Limited/Beta**입니다. |
 | Python engine marker | `0.6.0` | [`core/engine/result_builder.py`](core/engine/result_builder.py)의 `ENGINE_VERSION` | 계산 엔진 자체의 내부 iteration으로, 생성되는 모든 Analysis Result의 `source.engine_version` 필드에 기록됩니다. |
-| Excel Simulator artifact | `v0.6` | workbook 파일명 자체, `Pricing_Harness_Excel_Simulator_v0.6.xlsx` | Python engine이나 product release와 무관한, 이 특정 Excel build 자체의 iteration. |
+| Excel Simulator artifact | `v0.7` | workbook 파일명 자체, `Pricing_Harness_Excel_Simulator_v0.7.xlsx` | Python engine이나 product release와 무관한, 이 특정 Excel build 자체의 iteration. |
 | Schema / data contract | `1.3` | 모든 Client Input / Analysis Result / Scenario Compare 문서 안의 `schema_version` 필드 | 시스템을 흐르는 JSON 문서의 *모양(shape)* — 소프트웨어 릴리스가 아니라 데이터 호환성 버전입니다. `1.2`는 선택 필드 `sales_plan`(Client Input)과 `volume_profit`(Analysis Result)를 추가했고, `1.3`은 선택 필드 `sales_plan.units_per_order`를 추가했습니다. 이전 버전 문서는 모두 그대로 유효합니다. |
 
 이 네 숫자는 설계상 시간이 지나며 서로 달라집니다: schema migration, engine 전용 공식 수정,

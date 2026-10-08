@@ -379,8 +379,9 @@ engine (still `NOT_IMPLEMENTED` everywhere).
 1. **`units_per_order`.** *Decided in v0.2:* `sales_plan.units_per_order`, applied only by Volume Profit
    (§3, §11). Still open: whether MODE A/B/C/BEP should read it too, so every module in one Analysis Result
    agrees. Not done because it changes implemented, tested modules and their Excel parity, and it forces a
-   decision on what an order size means for MODE A's single-transaction diagnosis. Also open: Excel and the
-   web calculator do not model it yet (they keep the one-unit-per-order assumption and `ESTIMATED`).
+   decision on what an order size means for MODE A's single-transaction diagnosis. *Excel (workbook `v0.7`,
+   input `Units per Order`) and the web calculator model it, with the same divergence: their MODE A and
+   BEP parts never read it.*
 2. **First use of `ESTIMATED`.** *Python side confirmed:* `result_builder.py`,
    `analysis_result.schema.json`, and `aggregate_module_status()` handle it with no special-casing
    (tests assert module status stays `OK`). Excel and any future dashboard consumer are not

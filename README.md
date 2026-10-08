@@ -239,7 +239,7 @@ sibling scenario is never penalized for an unrelated baseline's failure.
 
 ## Excel Simulator
 
-[`tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.6.xlsx`](tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.6.xlsx)
+[`tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.7.xlsx`](tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.7.xlsx)
 is a tracked, ready-to-open workbook — you don't need to build anything to use it. It is a
 **presentation/parity layer**, not a 1:1 UI over every Python Core capability: it exposes a
 simplified, representative-slot version of each mode's inputs (see
@@ -252,7 +252,7 @@ To regenerate it from the current formula-generation code:
 python tools/excel_simulator/build_workbook.py
 ```
 
-This always writes to `tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.6.xlsx` relative
+This always writes to `tools/excel_simulator/Pricing_Harness_Excel_Simulator_v0.7.xlsx` relative
 to the script's own location, regardless of your current working directory.
 
 ## Excel QA
@@ -291,7 +291,7 @@ against whatever commit you have checked out):
 - MODE C Excel QA: 20/20 PASS
 - BEP Excel QA: PASS
 - Scenario Compare Excel QA: 25 cases PASS
-- Volume Profit Excel QA: PASS (29 simulator scenarios, 30 parity cases)
+- Volume Profit Excel QA: PASS (42 simulator scenarios, 43 parity cases)
 - raw Excel errors: 0
 
 ## Current limitations
@@ -313,9 +313,9 @@ against whatever commit you have checked out):
   the `per_month` period. A `per_order` cost is divided by `sales_plan.units_per_order` when you give
   it; without it, one unit per order is assumed and the quantity-dependent metrics are `ESTIMATED`.
   MODE A and BEP do not read `units_per_order`, so with a value other than 1 they differ from Volume
-  Profit in the same result. The Excel sheets and the web calculator do not model `units_per_order`
-  yet (they keep the one-unit-per-order assumption). Its Excel sheets compare values, statuses and module status
-  with the Python Core, but not warning codes.
+  Profit in the same result — the Excel sheets and the web calculator behave the same way (their
+  MODE A/BEP parts never read it). Volume Profit's Excel sheets compare values, statuses and module
+  status with the Python Core, but not warning codes.
 - `build_workbook.py` has an import-time side effect (importing the module regenerates and saves
   the workbook) — always run it as a script (`python tools/excel_simulator/build_workbook.py`),
   never `import build_workbook` from another script or a REPL.
@@ -329,7 +329,7 @@ meant to match each other, and none of them should be read as covering what anot
 |---|---|---|---|
 | **Product release** | `0.1.0-beta.6` | root [`VERSION`](VERSION) file, tagged in git as `v0.1.0-beta.6` | The Pricing Harness as a whole (Python Core + schemas + Excel Simulator + docs) at a point in time. This is the sanitized public repository's release identity — current maturity is **Limited/Beta**. |
 | Python engine marker | `0.6.0` | `ENGINE_VERSION` in [`core/engine/result_builder.py`](core/engine/result_builder.py) | The calculation engine's own internal iteration, stamped into every generated Analysis Result's `source.engine_version` field. |
-| Excel Simulator artifact | `v0.6` | the workbook's own filename, `Pricing_Harness_Excel_Simulator_v0.6.xlsx` | This specific Excel build's own iteration, independent of the Python engine or the product release. |
+| Excel Simulator artifact | `v0.7` | the workbook's own filename, `Pricing_Harness_Excel_Simulator_v0.7.xlsx` | This specific Excel build's own iteration, independent of the Python engine or the product release. |
 | Schema / data contract | `1.3` | `schema_version` field inside every Client Input / Analysis Result / Scenario Compare document | The *shape* of the JSON documents flowing through the system — a data-compatibility version, not a software release. `1.2` added the optional `sales_plan` (Client Input) and `volume_profit` (Analysis Result); `1.3` added the optional `sales_plan.units_per_order`. Every earlier document remains valid. |
 
 These four numbers will drift apart over time by design: a schema migration, an engine-only
