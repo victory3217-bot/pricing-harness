@@ -13,7 +13,7 @@ independent self-check cell (|MoS qty x CMu - operating profit| <= tol) never re
 12_VOLUME_PROFIT_SIMULATOR is inherently single-component and has no Component Count / Basis
 Consistency controls, so the multi-component gate and inconsistent-fixed-cost-basis cases cannot
 be driven through its input cells; those are exercised in 13_VOLUME_PROFIT_PARITY_TEST, whose own
-"ALL PASS" roll-up cell this driver reads for full coverage (30 cases).
+"ALL PASS" roll-up cell this driver reads for full coverage (43 cases).
 
 Warning codes are not compared: Excel has no cell that carries them (see 00_GUIDE).
 """
@@ -40,7 +40,7 @@ from scenario_helpers import (  # noqa: E402
 )
 
 SOFFICE = r"C:\Program Files\LibreOffice\program\soffice.exe"
-BASE_WB = HERE / "Pricing_Harness_Excel_Simulator_v0.6.xlsx"
+BASE_WB = HERE / "Pricing_Harness_Excel_Simulator_v0.7.xlsx"
 SCRATCH = HERE / "_qa_scratch_vp"
 SHEET = "12_VOLUME_PROFIT_SIMULATOR"
 
@@ -58,6 +58,7 @@ INPUT_LABELS = {
     "fcs": "Fixed Cost Allocation Status (Excel simulation control — not a schema field)",
     "q": "Planned Quantity per Month (units)",
     "period": "Plan Period Basis",
+    "upo": "Units per Order (sales_plan.units_per_order)",
     "plan": "Sales Plan Present (Excel simulation control — not a schema field)",
 }
 
@@ -83,7 +84,7 @@ RATIO_KEYS = {"operating_profit_rate", "margin_of_safety_rate"}
 BASE = dict(
     actual_price=35000, includes_vat=True, vat_rate=0.10, direct=13500, varfixed=3000, haspo=False,
     ratenet=0, rategross=0.025, fc=2000000, fcbasis="per_month", fcs="component",
-    q=200, period="per_month", plan="present",
+    q=200, period="per_month", plan="present", upo=None,
 )
 SIMPLE = dict(actual_price=1000, includes_vat=False, vat_rate=None, direct=400, varfixed=0,
               rategross=0, fc=60000)
@@ -132,6 +133,20 @@ SCENARIOS = [
     sc("VAT-exclusive price with gross-payment fee", actual_price=32000, includes_vat=False,
        vat_rate=0.10, rategross=0.05),
     sc("Net-sales fee rate", ratenet=0.1, rategross=0, direct=200, varfixed=0),
+    # units_per_order: blank = assume 1 (ESTIMATED); > 0 divides the per_order cost; else ERROR.
+    sc("units_per_order = 2 with a per_order cost (OK, not ESTIMATED)", haspo=True, upo=2),
+    sc("units_per_order = 1.5 (non-integer average)", haspo=True, upo=1.5),
+    sc("units_per_order = 1 equals the per-unit case", haspo=True, upo=1),
+    sc("units_per_order given but no per_order cost", haspo=False, upo=5),
+    sc("units_per_order = 0 -> ERROR", haspo=True, upo=0),
+    sc("units_per_order negative -> ERROR", haspo=True, upo=-1),
+    sc("units_per_order is text -> ERROR", haspo=True, upo="2"),
+    sc("units_per_order = 0 -> ERROR even without a per_order cost", haspo=False, upo=0),
+    sc("valid units_per_order + price blank", haspo=True, upo=2, actual_price=None),
+    sc("invalid units_per_order + price blank (ERROR beats UNKNOWN)", haspo=True, upo=0, actual_price=None),
+    sc("units_per_order + NOT_RUN gate", haspo=True, upo=2, plan="absent"),
+    sc("units_per_order = 2, plan below break-even", haspo=True, upo=2, q=100),
+    sc("units_per_order = 2 on the SIMPLE fixture", **{**SIMPLE, "varfixed": 100}, haspo=True, upo=4, q=250),
 ]
 
 
@@ -156,6 +171,7 @@ def _python_reference(scenario):
         net_sales_fee_rate=scenario["ratenet"], gross_payment_fee_rate=scenario["rategross"],
         fixed_operating_cost=fc_value, fixed_operating_cost_basis=scenario["fcbasis"] or "per_month",
         planned_quantity=scenario["q"], period_basis=scenario["period"],
+        units_per_order=scenario["upo"],
         has_sales_plan=(scenario["plan"] == "present"), extra_cost_items=extra_items,
     )
     return vp_reference(run_volume_profit(ci))

@@ -36,7 +36,7 @@ from core.engine.modes.mode_b import run_mode_b  # noqa: E402
 from scenario_helpers import make_client_input_b, METRIC_KEYS_B  # noqa: E402
 
 SOFFICE = r"C:\Program Files\LibreOffice\program\soffice.exe"
-BASE_WB = HERE / "Pricing_Harness_Excel_Simulator_v0.6.xlsx"
+BASE_WB = HERE / "Pricing_Harness_Excel_Simulator_v0.7.xlsx"
 SCRATCH = HERE / "_qa_scratch_mode_b"
 
 # 04_MODE_B_SIMULATOR input/result cell rows — read directly off the built workbook rather than

@@ -588,9 +588,17 @@ def build_volume_profit_formulas(ws, cell_map, refs):
     A metric is a numeric value, or the literal status text "UNKNOWN" / "ERROR" /
     "NOT_APPLICABLE" (or "NOT_RUN" when the Sales Plan Present control is "absent"). The
     separate status cell adds the one state a value alone cannot carry: ESTIMATED, a numeric
-    value that depends on per-unit cost while `haspo` (Per-Order Cost Present) is TRUE (SPEC.md
-    section 11 — one unit per order is assumed). Status precedence is Python's: ERROR > UNKNOWN,
-    and an UNKNOWN input beats NOT_APPLICABLE (SPEC.md section 8).
+    value that depends on per-unit cost while `haspo` (Per-Order Cost Present) is TRUE and
+    `upo` (sales_plan.units_per_order) is blank (SPEC.md section 11 — one unit per order is
+    assumed). Status precedence is Python's: ERROR > UNKNOWN, and an UNKNOWN input beats
+    NOT_APPLICABLE (SPEC.md section 8).
+
+    `upo` mirrors volume_profit.py's units_per_order: blank = not provided (assume 1); a number
+    > 0 divides the lumped per_order amount (`varfixed`, when `haspo` is TRUE) — implemented as
+    a correction on top of BEP's CMu, which counts that amount in full; anything else present
+    (<= 0, text, boolean) is an ERROR on every metric that uses CMu, whether or not a per_order
+    cost exists — but never on planned_quantity or total_net_sales_ex_vat. Only this module reads
+    it: BEP's own cells keep treating the amount as per-unit.
 
     Excel-only controls (not schema fields): `plan` ("present"/"absent" — no sales_plan means the
     module is NOT_RUN), `haspo`, and the BEP controls `fcs` (Fixed Cost Allocation Status), and
@@ -601,6 +609,7 @@ def build_volume_profit_formulas(ws, cell_map, refs):
     "analysis_period_basis": coord}.
     """
     q, period, plan, haspo = refs["q"], refs["period"], refs["plan"], refs["haspo"]
+    upo, varfixed = refs["upo"], refs["varfixed"]
     cc = refs.get("cc")
 
     def coord(key):
@@ -618,16 +627,30 @@ def build_volume_profit_formulas(ws, cell_map, refs):
             bep_refs[optional] = refs[optional]
     bep_cells = build_bep_formulas(ws, {
         "_n": cell_map["_n"], "_g": cell_map["_g"],
-        "contribution_margin_per_unit": cell_map["_cmu"],
+        "contribution_margin_per_unit": cell_map["_cmu_bep"],
         "fixed_operating_cost": cell_map["_fc_bep"],
         "break_even_quantity_exact": cell_map["_q_bep_unused"],
         "analysis_period_basis": cell_map["_basis_bep"],
         "_diagnostic_code": cell_map["_diag"],
     }, bep_refs)
     n = coord("_n")
-    cmu = bep_cells["contribution_margin_per_unit"]
+    cmu_bep = bep_cells["contribution_margin_per_unit"]
     fc_bep = bep_cells["fixed_operating_cost"]
     basis_bep = bep_cells["analysis_period_basis"]
+
+    # units_per_order (SPEC.md section 11). State: blank -> "none" (assume 1), number > 0 ->
+    # "valid", anything else present -> "invalid". ISNUMBER guards the text-vs-number comparison.
+    upo_state = put("_upo_state", (
+        f'=IF(ISBLANK({upo}),"none",IF(AND(ISNUMBER({upo}),{upo}>0),"valid","invalid"))'
+    ))
+    # Per-unit CMu for this module: BEP's CMu subtracts the lumped per_order amount in full, so a
+    # valid units_per_order adds back amount x (1 - 1/u). Invalid -> ERROR before anything else
+    # (ERROR beats UNKNOWN, as the Python cost leaf does).
+    cmu = put("_cmu_vp", (
+        f'=IF({upo_state}="invalid","ERROR",'
+        f'IF(AND({upo_state}="valid",{haspo}=TRUE,ISNUMBER({cmu_bep})),'
+        f'{cmu_bep}+{varfixed}*(1-1/{upo}),{cmu_bep}))'
+    ))
 
     # Fixed-cost basis must be per_month (SPEC.md section 6): any other basis on a numeric FC is
     # a structurally unsupported shape -> ERROR (UNSUPPORTED_FIXED_COST_BASIS_FOR_VOLUME).
@@ -686,7 +709,8 @@ def build_volume_profit_formulas(ws, cell_map, refs):
     st = {}
     for key, cost_dep in depends_on_cost.items():
         val = m[key]
-        estimated = f'IF({haspo}=TRUE,"ESTIMATED","OK")' if cost_dep else '"OK"'
+        estimated = (f'IF(AND({haspo}=TRUE,{upo_state}="none"),"ESTIMATED","OK")'
+                     if cost_dep else '"OK"')
         st[key] = put(f"{key}__status", f'=IF(ISNUMBER({val}),{estimated},{val})')
 
     err_terms = ",".join(f'{c}="ERROR"' for c in st.values())
@@ -951,7 +975,7 @@ c.alignment = Alignment(wrap_text=True, vertical="top")
 g.row_dimensions[r].height = 40
 r += 2
 
-section_row(g, r, "이번 버전(v0.6)이 완전히 지원하는 범위", span=1); r += 1
+section_row(g, r, "이번 버전(v0.7)이 완전히 지원하는 범위", span=1); r += 1
 scope_lines = [
     "01_SIMULATOR(MODE A)는 단일 컴포넌트 상품(simple one-time product, ecommerce product)만 대화형으로 지원합니다.",
     "03_PARITY_TEST(MODE A)에서 두 시나리오(simple / ecommerce) 모두 Python 엔진 결과와 대조 검증되어 있습니다.",
@@ -968,8 +992,8 @@ scope_lines = [
     "Python 엔진(core/engine/scenario_compare.py)으로 대조 검증되어 있습니다 — baseline self-delta "
     "status 전파, invalid baseline의 sibling absolute 보존, request-level ERROR(duplicate scenario_id/"
     "baseline not found)까지 포함합니다.",
-    "12_VOLUME_PROFIT_SIMULATOR는 단일 컴포넌트·월(per_month) 기준으로 월 계획 판매량(Planned Quantity)에서 총 순매출·총 공헌이익·영업이익·손익분기 판매량·안전한계를 대화형으로 계산합니다. 값 셀과 별도로 Status 열에 OK/ESTIMATED/UNKNOWN/ERROR/NOT_APPLICABLE/NOT_RUN을 표시합니다 — 정액(주문당) 비용이 있으면 판매량 의존 지표가 ESTIMATED(주문당 1개 판매 가정)이고, 음수 영업이익·음수 안전한계는 오류가 아닌 유효한 결과입니다. Excel-only 컨트롤 3개(Per-Order Cost Present, Fixed Cost Allocation Status, Sales Plan Present)를 사용합니다.",
-    "13_VOLUME_PROFIT_PARITY_TEST에서 30개 케이스 전부 Excel 실시간 재계산 vs Python 엔진(core/engine/modes/volume_profit.py)으로 값·상태(ESTIMATED 포함)·모듈 상태·기간 basis를 대조 검증합니다. 경고 코드(warnings)는 Excel에 대응 셀이 없어 비교하지 않습니다. Volume Profit은 Scenario Compare(10/11번 시트)에 아직 연동되지 않았습니다.",
+    "12_VOLUME_PROFIT_SIMULATOR는 단일 컴포넌트·월(per_month) 기준으로 월 계획 판매량(Planned Quantity)에서 총 순매출·총 공헌이익·영업이익·손익분기 판매량·안전한계를 대화형으로 계산합니다. 값 셀과 별도로 Status 열에 OK/ESTIMATED/UNKNOWN/ERROR/NOT_APPLICABLE/NOT_RUN을 표시합니다 — 정액(주문당) 비용이 있고 Units per Order(sales_plan.units_per_order)가 비어 있으면 판매량 의존 지표가 ESTIMATED(주문당 1개 판매 가정)이며, 값을 넣으면 주문당 비용을 그 값으로 나눠 개당 환산하고 지표는 OK가 됩니다(0 이하·문자는 ERROR). MODE A/BEP는 이 값을 읽지 않아 1이 아닐 때 이 시트의 단위 공헌이익·손익분기와 다릅니다. 음수 영업이익·음수 안전한계는 오류가 아닌 유효한 결과입니다. Excel-only 컨트롤 3개(Per-Order Cost Present, Fixed Cost Allocation Status, Sales Plan Present)를 사용합니다.",
+    "13_VOLUME_PROFIT_PARITY_TEST에서 43개 케이스(units_per_order 13개 포함) 전부 Excel 실시간 재계산 vs Python 엔진(core/engine/modes/volume_profit.py)으로 값·상태(ESTIMATED 포함)·모듈 상태·기간 basis를 대조 검증합니다. 경고 코드(warnings)는 Excel에 대응 셀이 없어 비교하지 않습니다. Volume Profit은 Scenario Compare(10/11번 시트)에 아직 연동되지 않았습니다.",
     "blank=UNKNOWN / 0=explicit zero 원칙은 MODE A, MODE B, MODE C, BEP, Scenario Compare, Volume Profit 모두 동일하게 적용됩니다.",
 ]
 for line in scope_lines:
@@ -3877,7 +3901,7 @@ VP_INPUTS = [
     ("direct", "Product/Service Direct Cost", 13500, '#,##0', "개당 직접원가 합계"),
     ("varfixed", "Variable Selling/Delivery Cost (Fixed Amount)", 3000, '#,##0', "variable_selling_delivery 중 금액형 항목 합계"),
     ("haspo", "Per-Order Cost Present (Excel simulation control — not a schema field)", True, None,
-     "Excel-only. TRUE=위 금액형 변동비에 basis=per_order 항목이 있음 → 판매량 의존 지표가 ESTIMATED(주문당 1개 판매 가정). FALSE=개당(per_unit) 비용"),
+     "Excel-only. TRUE=위 금액형 변동비에 basis=per_order 항목이 있음 → Units per Order가 비어 있으면 판매량 의존 지표가 ESTIMATED(주문당 1개 판매 가정), 값이 있으면 그 값으로 나눠 환산. FALSE=개당(per_unit) 비용"),
     ("ratenet", "Net-Sales Fee Rate (b)", 0, "0.0%", "rate_of_net_sales 합계. 없으면 0"),
     ("rategross", "Gross-Payment Fee Rate (a)", 0.025, "0.0%", "rate_of_gross_payment 합계. 없으면 0"),
     ("fc", "Fixed Operating Cost Amount", 2000000, '#,##0', "월 고정운영비 — Fixed Cost Allocation Status=component일 때만 사용"),
@@ -3886,6 +3910,8 @@ VP_INPUTS = [
      "Excel-only. none=고정운영비 항목 없음(FC 확정 0) / component=위 금액·basis 사용 / unresolved=배부 미구현(UNKNOWN) / blended_only=배부 대상 아님(UNKNOWN) / invalid_direct=shared+direct 모순(ERROR)"),
     ("q", "Planned Quantity per Month (units)", 200, '#,##0.##', "sales_plan.planned_quantity — 빈칸=미입력(UNKNOWN), 0=판매 없음(유효), 음수=ERROR"),
     ("period", "Plan Period Basis", "per_month", None, "sales_plan.period_basis — 빈칸=UNKNOWN(기간을 임의로 가정하지 않음), per_month 외=ERROR"),
+    ("upo", "Units per Order (sales_plan.units_per_order)", None, '0.##',
+     "주문당 평균 판매 수량. 빈칸=미제공(주문당 1개 가정, ESTIMATED). 0보다 큰 값=주문당 비용을 그 값으로 나눠 개당 환산(지표 OK). 0 이하·문자=ERROR. MODE A/BEP는 이 값을 읽지 않음"),
     ("plan", "Sales Plan Present (Excel simulation control — not a schema field)", "present", None,
      "Excel-only. present=sales_plan 있음 / absent=sales_plan 없음 → 모듈 NOT_RUN(오류 아님)"),
 ]
@@ -3917,7 +3943,8 @@ ROW_BASIS_VP = r; r += 1
 ROW_MODULE_VP = r; r += 1
 HELPER_ROW_VP = r; r += 1
 
-VP_HELPER_KEYS = ["_n", "_g", "_cmu", "_fc_bep", "_basis_bep", "_q_bep_unused", "_diag", "_q_leaf", "_fc_vp"]
+VP_HELPER_KEYS = ["_n", "_g", "_cmu_bep", "_fc_bep", "_basis_bep", "_q_bep_unused", "_diag", "_q_leaf",
+                  "_fc_vp", "_upo_state", "_cmu_vp"]
 cell_map_vp = {}
 for key in METRIC_KEYS_VP:
     cell_map_vp[key] = (RESULT_ROWS_VP[key], 3)
@@ -3970,7 +3997,7 @@ ROW_SELF_CHECK_VP = r
 label(svp, r, 2, "Self-Check: |MoS qty × CMu − Operating Profit| ≤ tolerance?")
 mos_q = RESULT_CELLS_VP["metrics"]["margin_of_safety_quantity"]
 op_c = RESULT_CELLS_VP["metrics"]["operating_profit"]
-cmu_helper = svp.cell(row=HELPER_ROW_VP, column=10 + VP_HELPER_KEYS.index("_cmu")).coordinate
+cmu_helper = svp.cell(row=HELPER_ROW_VP, column=10 + VP_HELPER_KEYS.index("_cmu_vp")).coordinate
 sc_vp = formula_cell(svp, r, 3, (
     f'=IF(OR(NOT(ISNUMBER({mos_q})),NOT(ISNUMBER({cmu_helper})),NOT(ISNUMBER({op_c}))),'
     f'"N/A — not numeric",IF(ABS({mos_q}*{cmu_helper}-{op_c})<=0.01,"PASS","FAIL"))'
@@ -4032,8 +4059,8 @@ r = 2
 title_row(pvp, r, "13. Python Engine vs Excel Formula — Volume Profit Parity Test", span=8); r += 1
 pvp.merge_cells(start_row=r, start_column=2, end_row=r, end_column=9)
 c = pvp.cell(row=r, column=2, value=(
-    "각 케이스는 tests/test_volume_profit.py와 docs/features/volume_profit/SPEC.md의 규칙(per_order ESTIMATED, 음수 안전한계, "
-    "NOT_RUN/다중 컴포넌트 gate 순서, 기간 처리, 고정비 basis 제한 등)에 대응하며, Excel에 동일 입력값을 리터럴로 심어 "
+    "각 케이스는 tests/test_volume_profit.py와 docs/features/volume_profit/SPEC.md의 규칙(per_order ESTIMATED, units_per_order 환산·"
+    "오류 처리, 음수 안전한계, NOT_RUN/다중 컴포넌트 gate 순서, 기간 처리, 고정비 basis 제한 등)에 대응하며, Excel에 동일 입력값을 리터럴로 심어 "
     "12_VOLUME_PROFIT_SIMULATOR와 같은 수식(build_volume_profit_formulas)으로 독립 재계산한 뒤, Python 참조값"
     "(core/engine/modes/volume_profit.py 실행 결과, 빌드 시점에 고정)과 값·상태(ESTIMATED 포함)·모듈 상태·기간 basis를 "
     "모두 비교합니다. 허용오차 0.01(비율 지표는 0.000001). 경고 코드(warnings)는 Excel에 대응 셀이 없어 비교하지 않습니다."
@@ -4046,7 +4073,7 @@ r += 2
 VP_BASE = dict(
     actual_price=35000, includes_vat=True, vat_rate=0.10, direct=13500, varfixed=3000, haspo=False,
     ratenet=0, rategross=0.025, fc=2000000, fcbasis="per_month", fcs="component", fbc="consistent",
-    cc=1, plan="present", q=200, period="per_month",
+    cc=1, plan="present", q=200, period="per_month", upo=None,
 )
 _SIMPLE = dict(actual_price=1000, includes_vat=False, vat_rate=None, direct=400, varfixed=0,
                rategross=0, fc=60000)
@@ -4099,10 +4126,28 @@ PARITY_CASES_VP = [
             rategross=0, fc=50000, q=10),
     vp_case("V30. VAT-exclusive price with gross-payment fee",
             actual_price=32000, includes_vat=False, vat_rate=0.10, rategross=0.05),
+    # --- units_per_order (SPEC section 11): blank = assume 1; > 0 divides per_order; else ERROR ---
+    vp_case("V31. units_per_order = 2 divides the per_order cost (metrics OK, not ESTIMATED)",
+            haspo=True, upo=2),
+    vp_case("V32. units_per_order = 1.5 (non-integer average)", haspo=True, upo=1.5),
+    vp_case("V33. units_per_order = 1 equals the per-unit case", haspo=True, upo=1),
+    vp_case("V34. units_per_order given but no per_order cost (no effect)", haspo=False, upo=5),
+    vp_case("V35. units_per_order = 0 -> ERROR on cost-dependent metrics", haspo=True, upo=0),
+    vp_case("V36. units_per_order negative -> ERROR", haspo=True, upo=-1),
+    vp_case("V37. units_per_order is text -> ERROR", haspo=True, upo="2"),
+    vp_case("V38. units_per_order = 0 -> ERROR even without a per_order cost", haspo=False, upo=0),
+    vp_case("V39. valid units_per_order + price blank (UNKNOWN via net sales)",
+            haspo=True, upo=2, actual_price=None),
+    vp_case("V40. invalid units_per_order + price blank (ERROR beats UNKNOWN)",
+            haspo=True, upo=0, actual_price=None),
+    vp_case("V41. units_per_order + NOT_RUN gate", haspo=True, upo=2, plan="absent"),
+    vp_case("V42. units_per_order + multi-component gate", haspo=True, upo=2, cc=2),
+    vp_case("V43. units_per_order = 2 with a plan below break-even (negative margin of safety, OK)",
+            haspo=True, upo=2, q=100),
 ]
 
 FIELD_ORDER_VP = ["actual_price", "includes_vat", "vat_rate", "direct", "varfixed", "haspo", "ratenet",
-                  "rategross", "fc", "fcbasis", "fcs", "fbc", "cc", "plan", "q", "period"]
+                  "rategross", "fc", "fcbasis", "fcs", "fbc", "cc", "plan", "q", "period", "upo"]
 TOL_AMOUNT_VP = 0.01
 TOL_RATIO_VP = 0.000001
 
@@ -4134,7 +4179,7 @@ def _vp_python_reference(case):
         direct_cost=case["direct"], variable_fixed_cost=case["varfixed"], per_order=case["haspo"],
         net_sales_fee_rate=case["ratenet"], gross_payment_fee_rate=case["rategross"],
         fixed_operating_cost=fc_value, fixed_operating_cost_basis=case["fcbasis"] or "per_month",
-        planned_quantity=case["q"], period_basis=case["period"],
+        planned_quantity=case["q"], period_basis=case["period"], units_per_order=case["upo"],
         has_sales_plan=(case["plan"] == "present"), extra_cost_items=extra_fc_items,
         extra_components=extra_components,
     )
@@ -4181,7 +4226,8 @@ for case in PARITY_CASES_VP:
         pvp.column_dimensions[get_column_letter(col_idx)].hidden = True
 
     refs_local = {k: li[k] for k in ("actual_price", "includes_vat", "vat_rate", "direct", "varfixed", "ratenet",
-                                      "rategross", "fc", "fcbasis", "fcs", "fbc", "cc", "q", "period", "plan", "haspo")}
+                                      "rategross", "fc", "fcbasis", "fcs", "fbc", "cc", "q", "period", "plan", "haspo",
+                                      "upo")}
     refs_local["p"] = refs_local.pop("actual_price")
     refs_local["incvat"] = refs_local.pop("includes_vat")
     refs_local["v"] = refs_local.pop("vat_rate")
@@ -4239,7 +4285,7 @@ for case in PARITY_CASES_VP:
     label(pvp, r, 2, "Self-Check: |MoS qty × CMu − Operating Profit| ≤ tol")
     mos_ref = cells["metrics"]["margin_of_safety_quantity"]
     op_ref = cells["metrics"]["operating_profit"]
-    cmu_ref = pvp.cell(row=local_row, column=cmap["_cmu"][1]).coordinate
+    cmu_ref = pvp.cell(row=local_row, column=cmap["_cmu_vp"][1]).coordinate
     selfcheck = formula_cell(pvp, r, 3, (
         f'=IF(OR(NOT(ISNUMBER({mos_ref})),NOT(ISNUMBER({cmu_ref})),NOT(ISNUMBER({op_ref}))),"SKIP",'
         f'IF(ABS({mos_ref}*{cmu_ref}-{op_ref})<=0.01,"PASS","FAIL"))'
@@ -4261,6 +4307,6 @@ pvp.conditional_formatting.add(oc_vp.coordinate, FormulaRule(formula=[f'{oc_vp.c
 pvp.freeze_panes = "B4"
 print("13_VOLUME_PROFIT_PARITY_TEST_OK")
 
-OUT_PATH = ROOT / "tools" / "excel_simulator" / "Pricing_Harness_Excel_Simulator_v0.6.xlsx"
+OUT_PATH = ROOT / "tools" / "excel_simulator" / "Pricing_Harness_Excel_Simulator_v0.7.xlsx"
 wb.save(OUT_PATH)
 print("SAVED:", OUT_PATH)

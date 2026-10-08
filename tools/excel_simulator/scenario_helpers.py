@@ -272,8 +272,8 @@ METRIC_LABELS_BEP = {
 def make_client_input_vp(actual_price, includes_vat, vat_rate, direct_cost, variable_fixed_cost,
                          per_order, net_sales_fee_rate, gross_payment_fee_rate,
                          fixed_operating_cost, fixed_operating_cost_basis="per_month",
-                         planned_quantity=None, period_basis="per_month", has_sales_plan=True,
-                         currency="KRW", extra_cost_items=None, extra_components=None):
+                         planned_quantity=None, period_basis="per_month", units_per_order=None,
+                         has_sales_plan=True, currency="KRW", extra_cost_items=None, extra_components=None):
     """Volume Profit Client Input builder — the BEP builder plus a `sales_plan` and a switch for
     whether the lumped fixed-amount variable cost is a per_order item (the Excel flat model has
     one such cell, so `per_order` stands in for "some contributing cost item has basis
@@ -292,6 +292,8 @@ def make_client_input_vp(actual_price, includes_vat, vat_rate, direct_cost, vari
             item["basis"] = "per_order" if per_order else "per_unit"
     if has_sales_plan:
         ci["sales_plan"] = {"planned_quantity": planned_quantity, "period_basis": period_basis}
+        if units_per_order is not None:
+            ci["sales_plan"]["units_per_order"] = units_per_order
     return ci
 
 
